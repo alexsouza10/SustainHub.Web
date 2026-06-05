@@ -16,7 +16,6 @@ import {
   Plus, Search, Bug, Lightbulb, Wrench, Code2, Layers,
   ShieldAlert, Circle, CheckCircle2, Pencil, ChevronRight,
   Download, FileText, FileSpreadsheet, FileType, CalendarDays, X, Upload, Trash2,
-  KanbanSquare,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import {
@@ -244,20 +243,21 @@ export function Tasks() {
     <MainLayout title={t('tasks.title')} subtitle={t('tasks.subtitle')}>
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between gap-4 mb-5">
-        <div className="flex items-center gap-2 bg-muted/40 rounded-lg p-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        {/* View switcher */}
+        <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 overflow-x-auto">
           {(
             [
-              { id: 'tickets',          label: 'Tickets' },
-              { id: 'planner',          label: 'Planner' },
-              { id: 'product-features', label: 'Product Features' },
+              { id: 'tickets',          label: 'Tickets',  labelShort: 'Tickets' },
+              { id: 'planner',          label: 'Planner',  labelShort: 'Planner' },
+              { id: 'product-features', label: 'Features', labelShort: 'Features' },
             ] as const
           ).map(v => (
             <button
               key={v.id}
               onClick={() => setView(v.id)}
               className={cn(
-                'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+                'px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
                 view === v.id
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -268,16 +268,15 @@ export function Tasks() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Import button */}
+        {/* Actions */}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5">
             <Upload className="h-4 w-4" />
-            Import
+            <span className="hidden sm:inline">Import</span>
           </Button>
 
-          {/* Button 1 — raw data export */}
           <ExportMenu
-            label="Export Data"
+            label="Export"
             icon={Download}
             items={[
               {
@@ -292,14 +291,6 @@ export function Tasks() {
                 icon: FileSpreadsheet,
                 onSelect: () => exportTasksExcel(filtered),
               },
-            ]}
-          />
-
-          {/* Button 2 — formatted Monthly Report */}
-          <ExportMenu
-            label="Report"
-            icon={FileText}
-            items={[
               {
                 label: 'PDF Report',
                 description: 'KPIs + task detail (Save as PDF)',
@@ -309,9 +300,9 @@ export function Tasks() {
             ]}
           />
 
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Task
+          <Button onClick={() => setCreateOpen(true)} size="sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Task</span>
           </Button>
         </div>
       </div>
@@ -367,8 +358,8 @@ export function Tasks() {
             </button>
 
             {showDateFilter && (
-              <div className="flex items-center gap-2 flex-wrap p-2 rounded-lg bg-muted/40 border border-border">
-                <div className="flex items-center gap-1 bg-background rounded-md p-0.5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-muted/40 border border-border w-full sm:w-auto">
+                <div className="flex items-center gap-1 bg-background rounded-md p-0.5 self-start">
                   <button
                     onClick={() => setDateMode('created')}
                     className={cn('px-2 py-1 rounded text-xs font-medium',
@@ -384,17 +375,19 @@ export function Tasks() {
                     Completed
                   </button>
                 </div>
-                <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                  className="h-8 text-xs w-[140px]" />
-                <span className="text-muted-foreground text-xs">→</span>
-                <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                  className="h-8 text-xs w-[140px]" />
-                {(dateFrom || dateTo) && (
-                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs"
-                    onClick={() => { setDateFrom(''); setDateTo('') }}>
-                    Clear dates
-                  </Button>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="h-8 text-xs w-full sm:w-[135px]" />
+                  <span className="text-muted-foreground text-xs">→</span>
+                  <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="h-8 text-xs w-full sm:w-[135px]" />
+                  {(dateFrom || dateTo) && (
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs"
+                      onClick={() => { setDateFrom(''); setDateTo('') }}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -407,52 +400,55 @@ export function Tasks() {
             )}
           </div>
 
-          {/* Type tabs */}
-          <div className="flex items-center gap-1 flex-wrap">
-            {TYPE_TABS.map(tab => {
-              const Icon  = tab.icon
-              const count = tab.value !== null ? counts[tab.value] : allTickets.length
-              const active = activeType === tab.value
-              return (
-                <button
-                  key={String(tab.value)}
-                  onClick={() => setActiveType(tab.value)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-primary/10 text-primary border border-primary/30'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
-                  <span className={cn(
-                    'text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
-                    active ? 'bg-primary/20' : 'bg-muted'
-                  )}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+          {/* Type tabs + search */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            {/* Type tabs — scroll horizontal em mobile */}
+            <div className="flex items-center gap-1 overflow-x-auto pb-0.5 flex-1 min-w-0">
+              {TYPE_TABS.map(tab => {
+                const Icon  = tab.icon
+                const count = tab.value !== null ? counts[tab.value] : allTickets.length
+                const active = activeType === tab.value
+                return (
+                  <button
+                    key={String(tab.value)}
+                    onClick={() => setActiveType(tab.value)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
+                      active
+                        ? 'bg-primary/10 text-primary border border-primary/30'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label === 'All' ? 'All' : tab.label.slice(0, 3)}</span>
+                    <span className={cn(
+                      'text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center',
+                      active ? 'bg-primary/20' : 'bg-muted'
+                    )}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
-            {/* Search + quick create */}
-            <div className="ml-auto flex items-center gap-2">
-              <div className="relative">
+            {/* Search + quick-create */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search tasks..."
+                  placeholder="Search..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-8 text-sm w-48"
+                  className="pl-9 h-8 text-sm w-full sm:w-44"
                 />
               </div>
-              {/* Quick-create shortcuts */}
-              <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 h-8 px-2"
+              <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 h-8 px-2 flex-shrink-0"
                 onClick={() => openCreateFor(TicketType.Bug)}>
                 <Bug className="h-3.5 w-3.5" />
               </Button>
-              <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 h-8 px-2"
+              <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 h-8 px-2 flex-shrink-0"
                 onClick={() => openCreateFor(TicketType.Feature)}>
                 <Lightbulb className="h-3.5 w-3.5" />
               </Button>

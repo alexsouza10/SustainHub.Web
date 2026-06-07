@@ -44,7 +44,9 @@ export const authService = {
 
 export const ticketService = {
   getAll: (params?: { status?: string; priority?: string; page?: number; pageSize?: number }) =>
-    apiClient.get('/tickets', { params: { page: 1, pageSize: 50, ...params } }),
+    // Pages filter/sort/paginate client-side over the full tenant ticket list,
+    // so fetch generously — the API pages in-memory and this keeps that list complete.
+    apiClient.get('/tickets', { params: { page: 1, pageSize: 1000, ...params } }),
   getById: (id: string) =>
     apiClient.get(`/tickets/${id}`),
   create: (data: any) =>

@@ -20,6 +20,7 @@ import {
   SquareKanban,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   TicketType, Priority, Severity, TicketStatus, TicketDto, SprintDto,
   PRIORITY_LABEL, SEVERITY_LABEL, STATUS_LABEL, TYPE_LABEL,
@@ -221,6 +222,34 @@ export function Tasks() {
     return matchType && matchStatus && matchSearch && matchSprint(t) && inDateRange(t)
   }), [allTickets, activeType, statusGroup, search, sprintFilter, dateMode, dateFrom, dateTo])
 
+  // Pagination — applied on top of the filtered result set
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // Filter criteria changed → the result set is different, so jump back to page 1
+  useEffect(() => {
+    setPage(1)
+  }, [activeType, statusGroup, search, sprintFilter, dateMode, dateFrom, dateTo])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  // Changing page swaps the rows in place — without this, a click on "next" while
+  // scrolled to the pagination bar at the bottom looks like it did nothing.
+  const viewTopRef    = useRef<HTMLDivElement>(null)
+  const skipNextScroll = useRef(true)
+  useEffect(() => {
+    if (skipNextScroll.current) { skipNextScroll.current = false; return }
+    viewTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [page])
+
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  )
+
   const openCreateFor = (type: TicketType) => {
     setCreateDefault(type)
     setCreateOpen(true)
@@ -233,11 +262,11 @@ export function Tasks() {
     setSprintFilter('all')
   }
 
-  // selection helpers
-  const allFilteredIds   = filtered.map(t => t.id)
-  const allSelected      = allFilteredIds.length > 0 && allFilteredIds.every(id => selected.has(id))
-  const someSelected     = allFilteredIds.some(id => selected.has(id))
-  const selectedInView   = allFilteredIds.filter(id => selected.has(id))
+  // selection helpers — scoped to the current page, like most paginated tables
+  const pageIds          = paged.map(t => t.id)
+  const allSelected      = pageIds.length > 0 && pageIds.every(id => selected.has(id))
+  const someSelected     = pageIds.some(id => selected.has(id))
+  const selectedInView   = pageIds.filter(id => selected.has(id))
 
   const toggleOne = (id: string) =>
     setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
@@ -245,7 +274,7 @@ export function Tasks() {
   const toggleAll = () =>
     setSelected(prev => {
       const s = new Set(prev)
-      allSelected ? allFilteredIds.forEach(id => s.delete(id)) : allFilteredIds.forEach(id => s.add(id))
+      allSelected ? pageIds.forEach(id => s.delete(id)) : pageIds.forEach(id => s.add(id))
       return s
     })
 
@@ -354,7 +383,7 @@ export function Tasks() {
 
       {/* ── TICKETS VIEW ── */}
       {view === 'tickets' && (
-        <div className="space-y-4">
+        <div className="space-y-4" ref={viewTopRef}>
           {/* Status summary cards (clickable filters) */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {(['all', 'open', 'in-progress', 'blocked', 'done', 'cancelled'] as StatusGroup[]).map(g => {
@@ -525,7 +554,7 @@ export function Tasks() {
                 {hasActiveFilters ? 'No tasks match the current filters.' : 'No tasks yet — create your first one!'}
               </p>
             ) : (
-              filtered.map(ticket => (
+              paged.map(ticket => (
                 <TicketMobileCard
                   key={ticket.id}
                   ticket={ticket}
@@ -576,7 +605,7 @@ export function Tasks() {
                         </td>
                       </tr>
                     ) : (
-                      filtered.map((ticket, idx) => (
+                      paged.map((ticket, idx) => (
                         <TicketRow
                           key={ticket.id}
                           ticket={ticket}
@@ -594,20 +623,31 @@ export function Tasks() {
               </div>
 
               {!ticketsLoading && filtered.length > 0 && (
-                <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
+                <div className="px-4 py-2 border-t border-border text-xs text-muted-foreground flex items-center justify-between flex-wrap gap-1">
                   <span>
-                    {filtered.length} of {allTickets.length} task{allTickets.length !== 1 ? 's' : ''}
-                    {statusGroup !== 'all' && ` · ${STATUS_GROUP_LABEL[statusGroup]}`}
-                    {activeType !== null && ` · ${TYPE_LABEL[activeType]}`}
+                    {statusGroup !== 'all' && `${STATUS_GROUP_LABEL[statusGroup]} · `}
+                    {activeType !== null && `${TYPE_LABEL[activeType]} · `}
+                    Export reflects all {filtered.length} matching rows
                   </span>
                   <span className="flex items-center gap-1">
                     <Download className="h-3 w-3" />
-                    Export reflects these {filtered.length} rows
+                    {filtered.length} row{filtered.length !== 1 ? 's' : ''}
                   </span>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {!ticketsLoading && filtered.length > 0 && (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setPage}
+              onPageSizeChange={size => { setPageSize(size); setPage(1) }}
+              itemLabel="tasks"
+            />
+          )}
         </div>
       )}
 

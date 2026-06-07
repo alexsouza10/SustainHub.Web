@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -73,10 +74,32 @@ export function Sprints() {
     [sprints]
   )
 
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  // Changing page swaps the cards in place — without this, a click on "next" while
+  // scrolled to the pagination bar at the bottom looks like it did nothing.
+  const listTopRef     = useRef<HTMLDivElement>(null)
+  const skipNextScroll = useRef(true)
+  useEffect(() => {
+    if (skipNextScroll.current) { skipNextScroll.current = false; return }
+    listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [page])
+
+  const paged = useMemo(
+    () => sorted.slice((page - 1) * pageSize, page * pageSize),
+    [sorted, page, pageSize]
+  )
+
   return (
     <MainLayout title="Sprints" subtitle="Organize tasks into time-boxed iterations">
       {/* header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6" ref={listTopRef}>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <SquareKanban className="h-4 w-4" />
           <span>{sprints.length} sprint{sprints.length !== 1 ? 's' : ''}</span>
@@ -106,7 +129,7 @@ export function Sprints() {
         </div>
       ) : (
         <div className="space-y-3">
-          {sorted.map(sprint => {
+          {paged.map(sprint => {
             const tickets   = allTickets.filter(t => t.sprintId === sprint.id)
             const done      = tickets.filter(t => t.status === TicketStatus.Done).length
             const progress  = sprint.ticketCount > 0 ? Math.round((sprint.doneCount / sprint.ticketCount) * 100) : 0
@@ -225,6 +248,19 @@ export function Sprints() {
               </Card>
             )
           })}
+        </div>
+      )}
+
+      {!isLoading && sorted.length > 0 && (
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={sorted.length}
+            onPageChange={setPage}
+            onPageSizeChange={size => { setPageSize(size); setPage(1) }}
+            itemLabel="sprints"
+          />
         </div>
       )}
 

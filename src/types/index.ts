@@ -70,6 +70,20 @@ export interface TicketDto {
   actualHours?: number
   justification?: string
   tags: string[]
+  sprintId?: string
+  sprintName?: string
+}
+
+export interface SprintDto {
+  id: string
+  name: string
+  goal?: string
+  type: number   // 1=Sprint 2=Sustentation
+  status: number // 1=Planning 2=Active 3=Closed
+  startDate: string
+  endDate: string
+  ticketCount: number
+  doneCount: number
 }
 
 export interface PagedResult<T> {

@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
   X,
+  SquareKanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ export function Sidebar() {
   const navItems = [
     { icon: LayoutDashboard, label: t('nav.dashboard'),     href: '/dashboard'      },
     { icon: ListTodo,        label: t('nav.tasks'),         href: '/tasks'          },
+    { icon: SquareKanban,    label: 'Sprints',              href: '/sprints'        },
     { icon: Calendar,        label: t('nav.weeklyMeeting'), href: '/weekly-meeting' },
     { icon: Zap,             label: t('nav.aiInsights'),    href: '/ai-insights'    },
     { icon: Settings,        label: t('nav.admin'),         href: '/admin'          },

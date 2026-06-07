@@ -7,6 +7,7 @@ import { Register } from '@/pages/Register'
 
 const Dashboard    = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.Dashboard })))
 const Tasks        = lazy(() => import('@/pages/Tasks').then(m => ({ default: m.Tasks })))
+const Sprints      = lazy(() => import('@/pages/Sprints').then(m => ({ default: m.Sprints })))
 const WeeklyMeeting= lazy(() => import('@/pages/WeeklyMeeting').then(m => ({ default: m.WeeklyMeeting })))
 const AIInsights   = lazy(() => import('@/pages/AIInsights').then(m => ({ default: m.AIInsights })))
 const Admin        = lazy(() => import('@/pages/Admin').then(m => ({ default: m.Admin })))
@@ -40,6 +41,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard"      element={<Dashboard />} />
               <Route path="/tasks"          element={<Tasks />} />
+              <Route path="/sprints"        element={<Sprints />} />
               <Route path="/admin"          element={<Admin />} />
               <Route path="/weekly-meeting" element={<WeeklyMeeting />} />
               <Route path="/ai-insights"    element={<AIInsights />} />

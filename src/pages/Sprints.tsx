@@ -402,25 +402,44 @@ function AssignTasksModal({ sprint, allTickets, onClose }: {
   onClose: () => void
 }) {
   const update   = useUpdateTicket()
-  const [search, setSearch] = useState('')
-  const [tab, setTab]       = useState<'unassigned' | 'in-sprint'>('unassigned')
+  const [search, setSearch]   = useState('')
+  const [filter, setFilter]   = useState<'all' | 'in-sprint' | 'available'>('all')
   const [pending, setPending] = useState<Set<string>>(new Set())
+  const [error, setError]     = useState<string | null>(null)
 
-  const inSprint    = allTickets.filter(t => t.sprintId === sprint.id)
-  const unassigned  = allTickets.filter(t => !t.sprintId || t.sprintId !== sprint.id)
+  // Snapshot the order once so toggling membership doesn't reshuffle/hide rows
+  // mid-click — that "items vanish under the cursor" feel was the reported bug.
+  const [order] = useState(() => allTickets.map(t => t.id))
+  const byId = useMemo(() => new Map(allTickets.map(t => [t.id, t])), [allTickets])
 
-  const filtered = (tab === 'in-sprint' ? inSprint : unassigned).filter(t =>
-    t.title.toLowerCase().includes(search.toLowerCase())
-  )
+  const inSprintCount = allTickets.filter(t => t.sprintId === sprint.id).length
+
+  const visible = order
+    .map(id => byId.get(id))
+    .filter((t): t is TicketDto => !!t)
+    .filter(t => t.title.toLowerCase().includes(search.toLowerCase()))
+    .filter(t => {
+      const isIn = t.sprintId === sprint.id
+      if (filter === 'in-sprint') return isIn
+      if (filter === 'available') return !isIn
+      return true
+    })
 
   const toggle = async (ticket: TicketDto) => {
+    if (pending.has(ticket.id)) return
+    setError(null)
     setPending(p => new Set(p).add(ticket.id))
     const isInSprint = ticket.sprintId === sprint.id
-    await update.mutateAsync({
-      id: ticket.id,
-      data: { sprintId: isInSprint ? '00000000-0000-0000-0000-000000000000' : sprint.id },
-    })
-    setPending(p => { const s = new Set(p); s.delete(ticket.id); return s })
+    try {
+      await update.mutateAsync({
+        id: ticket.id,
+        data: { sprintId: isInSprint ? '00000000-0000-0000-0000-000000000000' : sprint.id },
+      })
+    } catch {
+      setError('Could not update that task. Please try again.')
+    } finally {
+      setPending(p => { const s = new Set(p); s.delete(ticket.id); return s })
+    }
   }
 
   return (
@@ -430,28 +449,29 @@ function AssignTasksModal({ sprint, allTickets, onClose }: {
         <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div>
             <p className="font-semibold">Manage Tasks</p>
-            <p className="text-xs text-muted-foreground">{sprint.name}</p>
+            <p className="text-xs text-muted-foreground">{sprint.name} · click a task to add or remove it</p>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* tabs */}
+        {/* filter chips */}
         <div className="flex gap-1 p-2 border-b border-border flex-shrink-0">
           {([
-            { id: 'unassigned', label: `Available (${unassigned.length})` },
-            { id: 'in-sprint',  label: `In sprint (${inSprint.length})` },
-          ] as const).map(t => (
+            { id: 'all',       label: `All (${order.length})` },
+            { id: 'in-sprint', label: `In sprint (${inSprintCount})` },
+            { id: 'available', label: `Available (${order.length - inSprintCount})` },
+          ] as const).map(f => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={f.id}
+              onClick={() => setFilter(f.id)}
               className={cn(
-                'flex-1 py-1.5 rounded-md text-sm font-medium transition-colors',
-                tab === t.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                filter === f.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {t.label}
+              {f.label}
             </button>
           ))}
         </div>
@@ -466,22 +486,32 @@ function AssignTasksModal({ sprint, allTickets, onClose }: {
           />
         </div>
 
-        {/* list */}
+        {error && (
+          <div className="mx-2 mt-2 px-3 py-2 rounded-md bg-red-500/10 text-red-400 text-xs flex-shrink-0">
+            {error}
+          </div>
+        )}
+
+        {/* list — membership toggles in place; rows never disappear while open */}
         <div className="overflow-y-auto flex-1">
-          {filtered.length === 0 ? (
+          {visible.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-10">No tasks found.</p>
           ) : (
-            filtered.map(ticket => {
+            visible.map(ticket => {
               const isIn = ticket.sprintId === sprint.id
               const busy = pending.has(ticket.id)
               return (
                 <div
                   key={ticket.id}
-                  onClick={() => !busy && toggle(ticket)}
+                  role="checkbox"
+                  aria-checked={isIn}
+                  tabIndex={0}
+                  onClick={() => toggle(ticket)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(ticket) } }}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 border-b border-border last:border-0',
-                    'cursor-pointer hover:bg-muted/40 transition-colors',
-                    busy && 'opacity-50 pointer-events-none'
+                    'cursor-pointer hover:bg-muted/40 transition-colors select-none',
+                    busy && 'opacity-50 cursor-wait'
                   )}
                 >
                   <div className={cn(
@@ -515,7 +545,7 @@ function AssignTasksModal({ sprint, allTickets, onClose }: {
         {/* footer */}
         <div className="p-3 border-t border-border flex-shrink-0 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {inSprint.length} task{inSprint.length !== 1 ? 's' : ''} in this sprint
+            {inSprintCount} task{inSprintCount !== 1 ? 's' : ''} in this sprint
           </span>
           <Button size="sm" onClick={onClose}>Done</Button>
         </div>

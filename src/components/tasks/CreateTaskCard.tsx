@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
-import { X, Bug, Lightbulb, Wrench, Code2, Tag, Clock, ChevronDown, UserRound } from 'lucide-react'
+import { X, Bug, Lightbulb, Wrench, Code2, Tag, Clock, ChevronDown, UserRound, SquareKanban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCreateTicket } from '@/hooks/useTickets'
 import { useProjects } from '@/hooks/useProjects'
 import { useTenantUsers } from '@/hooks/useUsers'
+import { useSprints } from '@/hooks/useSprints'
 import { TicketType, Priority, Severity } from '@/types'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -31,6 +32,9 @@ const TYPES = [
   { value: TicketType.TechDebt,    labelKey: 'ticketType.techDebt',    icon: Code2,     color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
 ]
 
+const fmtRange = (start: string, end: string) =>
+  `${new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+
 function useAutoResize(value: string) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const resize = useCallback(() => {
@@ -49,9 +53,17 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
   const [severity, setSeverity]       = useState<Severity>(Severity.Medium)
   const [tags, setTags]               = useState<string[]>([])
   const [assignedToUserId, setAssignedToUserId] = useState<string>('')
+  const [sprintId, setSprintId]       = useState<string>('')
 
   const { data: projects = [] }    = useProjects()
   const { data: tenantUsers = [] } = useTenantUsers()
+  const { data: sprints = [] }     = useSprints()
+
+  // Newest sprint = the one starting furthest out — new tasks default into it
+  // so they land in the upcoming iteration instead of the backlog.
+  const newestSprint = [...sprints].sort((a, b) =>
+    new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+  )[0]
   const createTicket = useCreateTicket()
   const { t } = useTranslation()
   const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<FormData>({
@@ -86,11 +98,20 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
     if (open) {
       setType(defaultType)
       setAssignedToUserId('')
+      setSprintId(newestSprint?.id ?? '')
       if (projects.length > 0) {
         setValue('projectId', projects[0].id)
       }
     }
   }, [open, defaultType]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sprint list may still be loading when the panel opens — apply the
+  // "newest sprint" default as soon as it becomes available.
+  useEffect(() => {
+    if (open && sprintId === '' && newestSprint) {
+      setSprintId(newestSprint.id)
+    }
+  }, [open, newestSprint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -114,12 +135,14 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
       assignedToUserId: assignedToUserId || null,
       estimatedHours: data.estimatedHours ? parseFloat(data.estimatedHours) : null,
       tags,
+      sprintId: sprintId || null,
     })
     reset()
     setTags([])
     setPriority(Priority.P2)
     setSeverity(Severity.Medium)
     setAssignedToUserId('')
+    setSprintId('')
     onClose()
   }
 
@@ -264,6 +287,34 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
+            </div>
+
+            {/* Sprint */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                Sprint
+              </label>
+              <div className="relative">
+                <SquareKanban className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={sprintId}
+                  onChange={e => setSprintId(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background pl-8 pr-8 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">No sprint</option>
+                  {sprints.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({fmtRange(s.startDate, s.endDate)})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+              {newestSprint && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Defaults to the newest sprint — change it if this task belongs elsewhere.
+                </p>
+              )}
             </div>
 
             {/* Project + Estimated Hours row */}

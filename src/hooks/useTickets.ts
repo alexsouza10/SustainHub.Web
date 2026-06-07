@@ -54,3 +54,16 @@ export function useDeleteTickets() {
     },
   })
 }
+
+export function useMoveTicketsToSprint() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ids, sprintId }: { ids: string[]; sprintId: string }) =>
+      Promise.all(ids.map(id => ticketService.update(id, { sprintId }))),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tickets'] })
+      qc.invalidateQueries({ queryKey: ['sprints'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}

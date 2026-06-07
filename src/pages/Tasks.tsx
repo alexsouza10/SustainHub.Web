@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,18 +8,20 @@ import { CreateTaskCard } from '@/components/tasks/CreateTaskCard'
 import { EditTaskPanel } from '@/components/tasks/EditTaskPanel'
 import { ExportMenu } from '@/components/tasks/ExportMenu'
 import { ImportPanel } from '@/components/tasks/ImportPanel'
-import { useTickets, useUpdateTicket, useDeleteTickets } from '@/hooks/useTickets'
+import { useTickets, useUpdateTicket, useDeleteTickets, useMoveTicketsToSprint } from '@/hooks/useTickets'
+import { useSprints } from '@/hooks/useSprints'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useAuthStore } from '@/stores/authStore'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, Bug, Lightbulb, Wrench, Code2, Layers,
-  ShieldAlert, Circle, CheckCircle2, Pencil, ChevronRight,
+  ShieldAlert, Circle, CheckCircle2, Pencil, ChevronLeft, ChevronRight, ChevronDown,
   Download, FileText, FileSpreadsheet, FileType, CalendarDays, X, Upload, Trash2,
+  SquareKanban,
 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import {
-  TicketType, Priority, Severity, TicketStatus, TicketDto,
+  TicketType, Priority, Severity, TicketStatus, TicketDto, SprintDto,
   PRIORITY_LABEL, SEVERITY_LABEL, STATUS_LABEL, TYPE_LABEL,
 } from '@/types'
 import {
@@ -135,9 +137,15 @@ export function Tasks() {
   const [dateTo, setDateTo]     = useState('')
   const [showDateFilter, setShowDateFilter] = useState(false)
 
+  // Sprint filter — 'all' | 'no-sprint' | <sprintId>
+  const [sprintFilter, setSprintFilter] = useState<string>('all')
+  const sprintFilterDefaulted = useRef(false)
+
   const { user, tenantName } = useAuthStore()
   const { data: ticketPage, isLoading: ticketsLoading, isError: ticketsError } = useTickets()
   const { data: features, isLoading: featuresLoading, isError: featuresError } = useFeatures()
+  const { data: sprints = [] } = useSprints()
+  const moveToSprint = useMoveTicketsToSprint()
 
   const allTickets = ticketPage?.items ?? []
 
@@ -170,22 +178,59 @@ export function Tasks() {
     return true
   }
 
+  // Sprints ordered chronologically (oldest → newest) so the switcher can step prev/next
+  const sprintsByDate = useMemo(
+    () => [...sprints].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
+    [sprints]
+  )
+
+  // "Current" sprint = the one whose date range covers today; falls back to the
+  // active one, then the nearest upcoming, then the most recent past sprint.
+  const currentSprint = useMemo(() => {
+    if (sprintsByDate.length === 0) return undefined
+    const now = Date.now()
+    const inRange = sprintsByDate.find(s =>
+      new Date(s.startDate).getTime() <= now && now <= new Date(s.endDate).getTime())
+    if (inRange) return inRange
+    const active = sprintsByDate.find(s => s.status === 2)
+    if (active) return active
+    const upcoming = sprintsByDate.find(s => new Date(s.startDate).getTime() > now)
+    if (upcoming) return upcoming
+    return sprintsByDate[sprintsByDate.length - 1]
+  }, [sprintsByDate])
+
+  // Default the switcher to the current sprint once it loads — but only once,
+  // so it never overrides a choice the user already made (incl. "All sprints").
+  useEffect(() => {
+    if (!sprintFilterDefaulted.current && currentSprint) {
+      setSprintFilter(currentSprint.id)
+      sprintFilterDefaulted.current = true
+    }
+  }, [currentSprint])
+
+  const matchSprint = (t: TicketDto) => {
+    if (sprintFilter === 'all') return true
+    if (sprintFilter === 'no-sprint') return !t.sprintId
+    return t.sprintId === sprintFilter
+  }
+
   const filtered = useMemo(() => allTickets.filter(t => {
     const matchType   = activeType === null || t.type === activeType
     const matchStatus = inStatusGroup(t.status, statusGroup)
     const matchSearch = t.title.toLowerCase().includes(search.toLowerCase())
-    return matchType && matchStatus && matchSearch && inDateRange(t)
-  }), [allTickets, activeType, statusGroup, search, dateMode, dateFrom, dateTo])
+    return matchType && matchStatus && matchSearch && matchSprint(t) && inDateRange(t)
+  }), [allTickets, activeType, statusGroup, search, sprintFilter, dateMode, dateFrom, dateTo])
 
   const openCreateFor = (type: TicketType) => {
     setCreateDefault(type)
     setCreateOpen(true)
   }
 
-  const hasActiveFilters = activeType !== null || statusGroup !== 'all' || !!search || !!dateFrom || !!dateTo
+  const hasActiveFilters = activeType !== null || statusGroup !== 'all' || !!search || !!dateFrom || !!dateTo || sprintFilter !== 'all'
   const clearFilters = () => {
     setActiveType(null); setStatusGroup('all'); setSearch('')
     setDateFrom(''); setDateTo(''); setShowDateFilter(false)
+    setSprintFilter('all')
   }
 
   // selection helpers
@@ -342,6 +387,14 @@ export function Tasks() {
 
           {/* Date filter bar */}
           <div className="flex items-center gap-2 flex-wrap">
+            <SprintFilterControl
+              sprints={sprintsByDate}
+              currentSprintId={currentSprint?.id}
+              value={sprintFilter}
+              onChange={setSprintFilter}
+              noSprintCount={allTickets.filter(t => !t.sprintId).length}
+            />
+
             <button
               onClick={() => setShowDateFilter(s => !s)}
               className={cn(
@@ -476,6 +529,7 @@ export function Tasks() {
                 <TicketMobileCard
                   key={ticket.id}
                   ticket={ticket}
+                  sprints={sprints}
                   checked={selected.has(ticket.id)}
                   onToggle={() => toggleOne(ticket.id)}
                   onEdit={() => setEditTicket(ticket)}
@@ -506,6 +560,7 @@ export function Tasks() {
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Priority</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Sprint</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Assignee</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Created</th>
                       <th className="px-4 py-3 w-16" />
@@ -516,7 +571,7 @@ export function Tasks() {
                       <LoadingRows />
                     ) : filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                        <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                           {hasActiveFilters ? 'No tasks match the current filters.' : 'No tasks yet — create your first one!'}
                         </td>
                       </tr>
@@ -526,6 +581,7 @@ export function Tasks() {
                           key={ticket.id}
                           ticket={ticket}
                           idx={idx}
+                          sprints={sprints}
                           checked={selected.has(ticket.id)}
                           onToggle={() => toggleOne(ticket.id)}
                           onEdit={() => setEditTicket(ticket)}
@@ -631,6 +687,14 @@ export function Tasks() {
             {selectedInView.length} selected
           </span>
           <div className="h-4 w-px bg-border" />
+          <BulkSprintMenu
+            ids={selectedInView}
+            sprints={sprints}
+            pending={moveToSprint.isPending}
+            onMove={async (sprintId) => {
+              await moveToSprint.mutateAsync({ ids: selectedInView, sprintId })
+            }}
+          />
           <Button
             size="sm"
             variant="ghost"
@@ -668,8 +732,9 @@ export function Tasks() {
 
 // ── TicketMobileCard ──────────────────────────────────────────────────────────
 
-function TicketMobileCard({ ticket, checked, onToggle, onEdit, onDelete }: {
+function TicketMobileCard({ ticket, sprints, checked, onToggle, onEdit, onDelete }: {
   ticket: TicketDto
+  sprints: SprintDto[]
   checked: boolean
   onToggle: () => void
   onEdit: () => void
@@ -703,6 +768,7 @@ function TicketMobileCard({ ticket, checked, onToggle, onEdit, onDelete }: {
               <Badge className={cn('text-[10px] px-1.5 py-0 h-4', STATUS_COLOR[ticket.status])}>
                 {STATUS_LABEL[ticket.status]}
               </Badge>
+              <SprintPicker ticket={ticket} sprints={sprints} />
             </div>
             <div className="flex items-center justify-between mt-1.5">
               <span className="text-[10px] text-muted-foreground">
@@ -724,9 +790,10 @@ function TicketMobileCard({ ticket, checked, onToggle, onEdit, onDelete }: {
 
 // ── TicketRow ─────────────────────────────────────────────────────────────────
 
-function TicketRow({ ticket, idx, checked, onToggle, onEdit, onDelete }: {
+function TicketRow({ ticket, idx, sprints, checked, onToggle, onEdit, onDelete }: {
   ticket: TicketDto
   idx: number
+  sprints: SprintDto[]
   checked: boolean
   onToggle: () => void
   onEdit: () => void
@@ -806,6 +873,10 @@ function TicketRow({ ticket, idx, checked, onToggle, onEdit, onDelete }: {
         </div>
       </td>
 
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+        <SprintPicker ticket={ticket} sprints={sprints} />
+      </td>
+
       <td className="px-4 py-3 text-muted-foreground text-xs">
         {ticket.assignedToUserName ?? '—'}
       </td>
@@ -833,6 +904,291 @@ function TicketRow({ ticket, idx, checked, onToggle, onEdit, onDelete }: {
         </div>
       </td>
     </tr>
+  )
+}
+
+// ── SprintPicker — shows current sprint, lets you move the task to another ──
+
+const NO_SPRINT = '00000000-0000-0000-0000-000000000000'
+
+const SPRINT_DOT_COLOR: Record<number, string> = {
+  1: 'bg-yellow-400',
+  2: 'bg-green-400',
+  3: 'bg-slate-400',
+}
+
+function SprintPicker({ ticket, sprints }: { ticket: TicketDto; sprints: SprintDto[] }) {
+  const update = useUpdateTicket()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const pick = (sprintId: string) => {
+    setOpen(false)
+    if ((ticket.sprintId ?? NO_SPRINT) === sprintId) return
+    update.mutate({ id: ticket.id, data: { sprintId } })
+  }
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title={ticket.sprintName ? `In sprint: ${ticket.sprintName}` : 'Not assigned to a sprint'}
+        className={cn(
+          'inline-flex items-center gap-1 max-w-[150px] text-[11px] px-1.5 py-0.5 rounded-md border transition-colors',
+          ticket.sprintName
+            ? 'border-primary/30 text-primary bg-primary/5 hover:bg-primary/10'
+            : 'border-border text-muted-foreground hover:bg-muted'
+        )}
+      >
+        <SquareKanban className="h-3 w-3 flex-shrink-0" />
+        <span className="truncate">{ticket.sprintName ?? 'No sprint'}</span>
+        <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-xl z-50 py-1 max-h-60 overflow-y-auto animate-in fade-in-0 zoom-in-95">
+          <button
+            onClick={() => pick(NO_SPRINT)}
+            className={cn(
+              'w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors',
+              !ticket.sprintId && 'text-primary font-medium'
+            )}
+          >
+            No sprint
+          </button>
+          {sprints.length === 0 ? (
+            <p className="px-3 py-1.5 text-xs text-muted-foreground">No sprints yet</p>
+          ) : (
+            sprints.map(s => (
+              <button
+                key={s.id}
+                onClick={() => pick(s.id)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors',
+                  ticket.sprintId === s.id && 'text-primary font-medium'
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', SPRINT_DOT_COLOR[s.status])} />
+                <span className="truncate">{s.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── BulkSprintMenu — move every selected task into (or out of) a sprint ──
+
+function BulkSprintMenu({ ids, sprints, pending, onMove }: {
+  ids: string[]
+  sprints: SprintDto[]
+  pending: boolean
+  onMove: (sprintId: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const choose = async (sprintId: string) => {
+    setOpen(false)
+    await onMove(sprintId)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-muted-foreground hover:text-foreground h-8 gap-1.5"
+        onClick={() => setOpen(o => !o)}
+        disabled={pending || ids.length === 0}
+      >
+        <SquareKanban className="h-3.5 w-3.5" />
+        {pending ? 'Moving…' : 'Move to sprint'}
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
+      </Button>
+
+      {open && (
+        <div className="absolute bottom-full mb-1.5 left-0 w-52 rounded-lg border border-border bg-popover shadow-xl z-50 py-1 max-h-60 overflow-y-auto animate-in fade-in-0 zoom-in-95">
+          <button
+            onClick={() => choose(NO_SPRINT)}
+            className="w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors"
+          >
+            Remove from sprint
+          </button>
+          {sprints.length === 0 ? (
+            <p className="px-3 py-1.5 text-xs text-muted-foreground">No sprints yet</p>
+          ) : (
+            sprints.map(s => (
+              <button
+                key={s.id}
+                onClick={() => choose(s.id)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors"
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', SPRINT_DOT_COLOR[s.status])} />
+                <span className="truncate">{s.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── SprintFilterControl — chronological sprint switcher used to filter tasks ──
+// Always surfaces the current sprint plus its neighbors: a dropdown lists every
+// sprint ordered by date (with the current one flagged), and the chevrons step
+// to the previous/next sprint without opening the menu.
+
+function SprintFilterControl({ sprints, currentSprintId, value, onChange, noSprintCount }: {
+  sprints: SprintDto[]          // chronological, oldest → newest
+  currentSprintId?: string
+  value: string                 // 'all' | 'no-sprint' | <sprintId>
+  onChange: (v: string) => void
+  noSprintCount: number
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const idx = sprints.findIndex(s => s.id === value)
+  const selected = idx >= 0 ? sprints[idx] : undefined
+
+  const step = (dir: -1 | 1) => {
+    if (sprints.length === 0) return
+    const base = idx >= 0 ? idx : sprints.findIndex(s => s.id === currentSprintId)
+    const from = base >= 0 ? base : 0
+    const next = sprints[from + dir]
+    if (next) onChange(next.id)
+  }
+
+  const canStepBack    = sprints.length > 0 && (idx > 0 || (idx === -1 && sprints.findIndex(s => s.id === currentSprintId) > 0))
+  const canStepForward = sprints.length > 0 && idx >= 0 && idx < sprints.length - 1
+
+  const label =
+    value === 'all'        ? 'All sprints'
+    : value === 'no-sprint' ? 'No sprint'
+    : selected             ? `${selected.name} · ${fmtDate(selected.startDate)} – ${fmtDate(selected.endDate)}`
+    : 'All sprints'
+
+  const isActive = value !== 'all'
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+        disabled={!canStepBack} onClick={() => step(-1)} title="Previous sprint"
+      >
+        <ChevronLeft className="h-3.5 w-3.5" />
+      </Button>
+
+      <div className="relative" ref={ref}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors max-w-[260px]',
+            isActive
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'text-muted-foreground hover:bg-muted border-border'
+          )}
+        >
+          <SquareKanban className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="truncate">{label}</span>
+          {selected && selected.id === currentSprintId && (
+            <span className="text-[10px] px-1 py-0.5 rounded bg-primary/15 text-primary flex-shrink-0">Current</span>
+          )}
+          <ChevronDown className={cn('h-3.5 w-3.5 flex-shrink-0 opacity-60 transition-transform', open && 'rotate-180')} />
+        </button>
+
+        {open && (
+          <div className="absolute left-0 mt-1 w-64 rounded-lg border border-border bg-popover shadow-xl z-50 py-1 max-h-80 overflow-y-auto animate-in fade-in-0 zoom-in-95">
+            <button
+              onClick={() => { onChange('all'); setOpen(false) }}
+              className={cn('w-full px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors', value === 'all' && 'text-primary font-medium')}
+            >
+              All sprints
+            </button>
+            <button
+              onClick={() => { onChange('no-sprint'); setOpen(false) }}
+              className={cn('w-full flex items-center justify-between px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors', value === 'no-sprint' && 'text-primary font-medium')}
+            >
+              <span>No sprint</span>
+              <span className="text-[10px] rounded-full px-1.5 py-0.5 bg-muted text-muted-foreground">{noSprintCount}</span>
+            </button>
+
+            {sprints.length > 0 && <div className="my-1 border-t border-border" />}
+
+            {sprints.map(s => (
+              <button
+                key={s.id}
+                onClick={() => { onChange(s.id); setOpen(false) }}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-muted transition-colors',
+                  value === s.id && 'text-primary font-medium'
+                )}
+              >
+                <span className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', SPRINT_DOT_COLOR[s.status])} />
+                <span className="truncate flex-1">{s.name} · {fmtDate(s.startDate)} – {fmtDate(s.endDate)}</span>
+                {s.id === currentSprintId && (
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-primary/15 text-primary flex-shrink-0">Current</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Button
+        variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+        disabled={!canStepForward} onClick={() => step(1)} title="Next sprint"
+      >
+        <ChevronRight className="h-3.5 w-3.5" />
+      </Button>
+    </div>
   )
 }
 

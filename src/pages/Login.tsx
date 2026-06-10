@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { authService } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Eye, EyeOff } from 'lucide-react'
 
 interface LoginFormData {
   email: string
@@ -16,8 +17,9 @@ export function Login() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const { t } = useTranslation()
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError]         = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>()
 
@@ -73,11 +75,22 @@ export function Login() {
 
             <div className="space-y-1">
               <label className="text-sm font-medium">{t('login.password')}</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                {...register('password', { required: t('login.passwordRequired') })}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  className="pr-10"
+                  {...register('password', { required: t('login.passwordRequired') })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
             </div>
 

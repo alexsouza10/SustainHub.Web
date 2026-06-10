@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Edit2, Power, Search, Trash2, Key } from 'lucide-react'
-import { useTenants, useCreateTenant, useAdminUsers, useCreateUser, useUpdateUserRole, useUpdateUserStatus, useUpdateTenant, useDeleteUser, useResetPassword } from '@/hooks/useAdmin'
+import { useTenants, useCreateTenant, useAdminUsers, useCreateUser, useUpdateUserRole, useUpdateUserStatus, useUpdateTenant, useDeleteUser, useResetPassword, useDeleteTenant } from '@/hooks/useAdmin'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { useAuthStore } from '@/stores/authStore'
 import { UserRole } from '@/types'
@@ -31,6 +31,7 @@ export function Admin() {
   const [showUserForm, setShowUserForm] = useState(false)
   const [editingTenant, setEditingTenant] = useState<{ id: string; name: string } | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
 
   const { data: tenants = [], isLoading: loadingTenants } = useTenants(isSuperAdmin)
@@ -85,6 +86,26 @@ export function Admin() {
       {/* Edit Tenant Modal — admin only */}
       {isAdmin && editingTenant && (
         <EditTenantModal tenant={editingTenant} onClose={() => setEditingTenant(null)} />
+      )}
+
+      {/* Delete Tenant Confirmation — SuperAdmin only */}
+      {isSuperAdmin && deletingTenantId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-96">
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg">Delete Company</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This will permanently delete the company and all its users, projects, and data. This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setDeletingTenantId(null)}>Cancel</Button>
+                <DeleteTenantButton tenantId={deletingTenantId} onSuccess={() => setDeletingTenantId(null)} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Delete User Confirmation — admin only */}
@@ -166,6 +187,12 @@ export function Admin() {
                               <Edit2 className="h-3 w-3" />
                             </Button>
                           )}
+                          {isSuperAdmin && (
+                            <Button variant="outline" size="sm" className="text-xs text-destructive hover:text-destructive"
+                              onClick={() => setDeletingTenantId(tenant.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button variant="outline" size="sm" className="shrink-0 text-xs"
                             onClick={() => { setSelectedTenant(tenant.id); setTab('users') }}>
                             Users
@@ -217,6 +244,12 @@ export function Admin() {
                             <Button variant="ghost" size="sm"
                               onClick={() => setEditingTenant({ id: tenant.id, name: tenant.name })}>
                               <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {isSuperAdmin && (
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"
+                              onClick={() => setDeletingTenantId(tenant.id)}>
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
                           <Button variant="ghost" size="sm"
@@ -479,6 +512,21 @@ function EditTenantModal({ tenant, onClose }: { tenant: { id: string; name: stri
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function DeleteTenantButton({ tenantId, onSuccess }: { tenantId: string; onSuccess: () => void }) {
+  const deleteTenant = useDeleteTenant()
+
+  const handleDelete = async () => {
+    await deleteTenant.mutateAsync(tenantId)
+    onSuccess()
+  }
+
+  return (
+    <Button variant="destructive" size="sm" disabled={deleteTenant.isPending} onClick={handleDelete}>
+      {deleteTenant.isPending ? 'Deleting...' : 'Delete'}
+    </Button>
   )
 }
 

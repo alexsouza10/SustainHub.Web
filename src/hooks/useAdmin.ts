@@ -108,3 +108,15 @@ export function useResetPassword() {
       apiClient.post(`/admin/users/${id}/reset-password`, { newPassword: password }).then(r => r.data),
   })
 }
+
+export function useDeleteTenant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.delete(`/admin/tenants/${id}`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-tenants'] })
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+    },
+  })
+}

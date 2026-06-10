@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { AdminRoute } from '@/components/auth/AdminRoute'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 
@@ -42,7 +43,9 @@ function App() {
               <Route path="/dashboard"      element={<Dashboard />} />
               <Route path="/tasks"          element={<Tasks />} />
               <Route path="/sprints"        element={<Sprints />} />
-              <Route path="/admin"          element={<Admin />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin"        element={<Admin />} />
+              </Route>
               <Route path="/weekly-meeting" element={<WeeklyMeeting />} />
               <Route path="/ai-insights"    element={<AIInsights />} />
             </Route>

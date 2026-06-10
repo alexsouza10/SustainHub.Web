@@ -7,53 +7,88 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Edit2, Power, Search, Trash2, Key } from 'lucide-react'
 import { useTenants, useCreateTenant, useAdminUsers, useCreateUser, useUpdateUserRole, useUpdateUserStatus, useUpdateTenant, useDeleteUser, useResetPassword } from '@/hooks/useAdmin'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { useAuthStore } from '@/stores/authStore'
+import { UserRole } from '@/types'
 import { cn } from '@/lib/utils'
 
 export function Admin() {
-  const [tab, setTab] = useState<'companies' | 'users'>('companies')
+  const { user, tenantName } = useAuthStore()
+  const isSuperAdmin  = user?.role === UserRole.SuperAdmin
+  const isTenantAdmin = user?.role === UserRole.TenantAdmin
+  const isManager     = user?.role === UserRole.Manager
+  const isAdmin       = isTenantAdmin || isSuperAdmin
+
+  // Managers and TenantAdmins are scoped to their own tenant
+  const isScopedToOwnTenant = isTenantAdmin || isManager
+
+  const [tab, setTab] = useState<'companies' | 'users'>(isManager ? 'users' : 'companies')
   const [searchTenants, setSearchTenants] = useState('')
   const [searchUsers, setSearchUsers] = useState('')
-  const [selectedTenant, setSelectedTenant] = useState<string>()
+  const [selectedTenant, setSelectedTenant] = useState<string | undefined>(
+    isScopedToOwnTenant ? user?.tenantId : undefined
+  )
   const [showTenantForm, setShowTenantForm] = useState(false)
   const [showUserForm, setShowUserForm] = useState(false)
   const [editingTenant, setEditingTenant] = useState<{ id: string; name: string } | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null)
 
-  const { data: tenants = [], isLoading: loadingTenants } = useTenants()
-  const { data: users = [], isLoading: loadingUsers } = useAdminUsers(selectedTenant)
+  const { data: tenants = [], isLoading: loadingTenants } = useTenants(isSuperAdmin)
+  const { data: users = [], isLoading: loadingUsers } = useAdminUsers(
+    isScopedToOwnTenant ? user?.tenantId : selectedTenant
+  )
 
-  const filteredTenants = tenants.filter(t => t.name.toLowerCase().includes(searchTenants.toLowerCase()))
+  const ownTenantForAdmin = isScopedToOwnTenant && user
+    ? [{ id: user.tenantId, name: tenantName ?? '', plan: '', isActive: true, createdAt: '', userCount: users.length }]
+    : []
+  const tenantsToShow = isSuperAdmin ? tenants : ownTenantForAdmin
+  const filteredTenants = tenantsToShow.filter(t => t.name.toLowerCase().includes(searchTenants.toLowerCase()))
   const filteredUsers = users.filter(u =>
     u.name.toLowerCase().includes(searchUsers.toLowerCase()) ||
     u.email.toLowerCase().includes(searchUsers.toLowerCase())
   )
 
+  const subtitle = isManager
+    ? 'View team members'
+    : 'Manage companies, users, and roles'
+
   return (
-    <MainLayout title="Administration" subtitle="Manage companies, users, and roles">
-      {/* Tabs */}
+    <MainLayout title="Administration" subtitle={subtitle}>
+      {/* Tabs — Manager só vê Users */}
       <div className="flex gap-4 mb-6 border-b overflow-x-auto">
-        {(['companies', 'users'] as const).map(t => (
+        {!isManager && (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setTab('companies')}
             className={cn(
               'px-4 py-2 font-medium border-b-2 transition-colors capitalize whitespace-nowrap',
-              tab === t
+              tab === 'companies'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            {t === 'companies' ? 'Companies' : 'Users'}
+            Companies
           </button>
-        ))}
+        )}
+        <button
+          onClick={() => setTab('users')}
+          className={cn(
+            'px-4 py-2 font-medium border-b-2 transition-colors capitalize whitespace-nowrap',
+            tab === 'users'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Users
+        </button>
       </div>
 
-      {/* Edit Tenant Modal */}
-      {editingTenant && <EditTenantModal tenant={editingTenant} onClose={() => setEditingTenant(null)} />}
+      {/* Edit Tenant Modal — admin only */}
+      {isAdmin && editingTenant && (
+        <EditTenantModal tenant={editingTenant} onClose={() => setEditingTenant(null)} />
+      )}
 
-      {/* Delete User Confirmation */}
-      {deletingUserId && (
+      {/* Delete User Confirmation — admin only */}
+      {isAdmin && deletingUserId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-96">
             <CardContent className="p-6 space-y-4">
@@ -70,8 +105,8 @@ export function Admin() {
         </div>
       )}
 
-      {/* Reset Password Modal */}
-      {resetPasswordUserId && (
+      {/* Reset Password Modal — admin only */}
+      {isAdmin && resetPasswordUserId && (
         <ResetPasswordModal userId={resetPasswordUserId} onClose={() => setResetPasswordUserId(null)} />
       )}
 
@@ -84,12 +119,14 @@ export function Admin() {
               <Input placeholder="Search companies..." className="pl-8" value={searchTenants}
                 onChange={e => setSearchTenants(e.target.value)} />
             </div>
-            <Button onClick={() => setShowTenantForm(!showTenantForm)} className="gap-2 shrink-0">
-              <Plus className="h-4 w-4" /><span className="hidden sm:inline">New Company</span>
-            </Button>
+            {isSuperAdmin && (
+              <Button onClick={() => setShowTenantForm(!showTenantForm)} className="gap-2 shrink-0">
+                <Plus className="h-4 w-4" /><span className="hidden sm:inline">New Company</span>
+              </Button>
+            )}
           </div>
 
-          {showTenantForm && <TenantForm onClose={() => setShowTenantForm(false)} />}
+          {showTenantForm && isSuperAdmin && <TenantForm onClose={() => setShowTenantForm(false)} />}
 
           {loadingTenants ? (
             <div className="space-y-2">
@@ -106,22 +143,34 @@ export function Admin() {
                         <div className="min-w-0">
                           <p className="font-medium text-sm truncate">{tenant.name}</p>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-500">
-                              {tenant.plan}
-                            </Badge>
+                            {tenant.plan && (
+                              <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-500">
+                                {tenant.plan}
+                              </Badge>
+                            )}
                             <span className={cn('text-[10px] font-medium', tenant.isActive ? 'text-green-500' : 'text-red-500')}>
                               {tenant.isActive ? 'Active' : 'Inactive'}
                             </span>
                             <span className="text-[10px] text-muted-foreground">{tenant.userCount} users</span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {new Date(tenant.createdAt).toLocaleDateString()}
-                          </p>
+                          {tenant.createdAt && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {new Date(tenant.createdAt).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
-                        <Button variant="outline" size="sm" className="shrink-0 text-xs"
-                          onClick={() => { setSelectedTenant(tenant.id); setTab('users') }}>
-                          Users
-                        </Button>
+                        <div className="flex gap-1 shrink-0">
+                          {isAdmin && (
+                            <Button variant="outline" size="sm" className="text-xs"
+                              onClick={() => setEditingTenant({ id: tenant.id, name: tenant.name })}>
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" className="shrink-0 text-xs"
+                            onClick={() => { setSelectedTenant(tenant.id); setTab('users') }}>
+                            Users
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -134,10 +183,10 @@ export function Admin() {
                   <thead className="bg-muted/50 border-b">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium">Name</th>
-                      <th className="px-4 py-3 text-left font-medium">Plan</th>
+                      {isSuperAdmin && <th className="px-4 py-3 text-left font-medium">Plan</th>}
                       <th className="px-4 py-3 text-left font-medium">Users</th>
                       <th className="px-4 py-3 text-left font-medium">Status</th>
-                      <th className="px-4 py-3 text-left font-medium">Created</th>
+                      {isSuperAdmin && <th className="px-4 py-3 text-left font-medium">Created</th>}
                       <th className="px-4 py-3 text-right font-medium">Actions</th>
                     </tr>
                   </thead>
@@ -145,28 +194,34 @@ export function Admin() {
                     {filteredTenants.map(tenant => (
                       <tr key={tenant.id} className="border-b hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-medium">{tenant.name}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500">
-                            {tenant.plan}
-                          </span>
-                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500">
+                              {tenant.plan}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-4 py-3">{tenant.userCount}</td>
                         <td className="px-4 py-3">
                           <span className={tenant.isActive ? 'text-green-500' : 'text-red-500'}>
                             {tenant.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {new Date(tenant.createdAt).toLocaleDateString()}
-                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : '—'}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-right space-x-1">
-                          <Button variant="ghost" size="sm"
-                            onClick={() => setEditingTenant({ id: tenant.id, name: tenant.name })}>
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
+                          {isAdmin && (
+                            <Button variant="ghost" size="sm"
+                              onClick={() => setEditingTenant({ id: tenant.id, name: tenant.name })}>
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm"
                             onClick={() => { setSelectedTenant(tenant.id); setTab('users') }}>
-                            Manage Users
+                            {isAdmin ? 'Manage Users' : 'View Users'}
                           </Button>
                         </td>
                       </tr>
@@ -182,7 +237,7 @@ export function Admin() {
       {/* Users Tab */}
       {tab === 'users' && (
         <div className="space-y-4">
-          {selectedTenant ? (
+          {(isScopedToOwnTenant || selectedTenant) ? (
             <>
               <div className="flex gap-2">
                 <div className="flex-1 relative">
@@ -190,47 +245,58 @@ export function Admin() {
                   <Input placeholder="Search users..." className="pl-8" value={searchUsers}
                     onChange={e => setSearchUsers(e.target.value)} />
                 </div>
-                <Button onClick={() => setShowUserForm(!showUserForm)} className="gap-2 shrink-0">
-                  <Plus className="h-4 w-4" /><span className="hidden sm:inline">New User</span>
-                </Button>
+                {isAdmin && (
+                  <Button onClick={() => setShowUserForm(!showUserForm)} className="gap-2 shrink-0">
+                    <Plus className="h-4 w-4" /><span className="hidden sm:inline">New User</span>
+                  </Button>
+                )}
               </div>
 
-              {showUserForm && <UserForm tenantId={selectedTenant} onClose={() => setShowUserForm(false)} />}
+              {showUserForm && isAdmin && (
+                <UserForm
+                  tenantId={(isScopedToOwnTenant ? user?.tenantId : selectedTenant) ?? ''}
+                  onClose={() => setShowUserForm(false)}
+                />
+              )}
 
               {loadingUsers ? (
                 <div className="space-y-2">
                   {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}
                 </div>
+              ) : filteredUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-4 text-center">No users found.</p>
               ) : (
                 <>
                   {/* Mobile cards */}
                   <div className="md:hidden space-y-2">
-                    {filteredUsers.map(user => (
-                      <Card key={user.id}>
+                    {filteredUsers.map(u => (
+                      <Card key={u.id}>
                         <CardContent className="p-3">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="font-medium text-sm truncate">{user.name}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+                              <p className="font-medium text-sm truncate">{u.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className={cn(
                                   'text-[10px] font-medium px-1.5 py-0.5 rounded',
-                                  user.role === 'TenantAdmin' ? 'bg-purple-500/10 text-purple-500'
-                                  : user.role === 'Manager' ? 'bg-orange-500/10 text-orange-500'
+                                  u.role === 'TenantAdmin' ? 'bg-purple-500/10 text-purple-500'
+                                  : u.role === 'Manager' ? 'bg-orange-500/10 text-orange-500'
                                   : 'bg-blue-500/10 text-blue-500'
                                 )}>
-                                  {user.role}
+                                  {u.role}
                                 </span>
-                                <span className={cn('text-[10px] font-medium', user.isActive ? 'text-green-500' : 'text-red-500')}>
-                                  {user.isActive ? 'Active' : 'Inactive'}
+                                <span className={cn('text-[10px] font-medium', u.isActive ? 'text-green-500' : 'text-red-500')}>
+                                  {u.isActive ? 'Active' : 'Inactive'}
                                 </span>
                               </div>
                             </div>
-                            <div className="flex gap-1 shrink-0">
-                              <UserActions userId={user.id} currentRole={user.role} currentStatus={user.isActive}
-                                onDelete={() => setDeletingUserId(user.id)}
-                                onResetPassword={() => setResetPasswordUserId(user.id)} />
-                            </div>
+                            {isAdmin && (
+                              <div className="flex gap-1 shrink-0">
+                                <UserActions userId={u.id} currentRole={u.role} currentStatus={u.isActive}
+                                  onDelete={() => setDeletingUserId(u.id)}
+                                  onResetPassword={() => setResetPasswordUserId(u.id)} />
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -246,34 +312,36 @@ export function Admin() {
                           <th className="px-4 py-3 text-left font-medium">Email</th>
                           <th className="px-4 py-3 text-left font-medium">Role</th>
                           <th className="px-4 py-3 text-left font-medium">Status</th>
-                          <th className="px-4 py-3 text-right font-medium">Actions</th>
+                          {isAdmin && <th className="px-4 py-3 text-right font-medium">Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredUsers.map(user => (
-                          <tr key={user.id} className="border-b hover:bg-muted/30 transition-colors">
-                            <td className="px-4 py-3 font-medium">{user.name}</td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">{user.email}</td>
+                        {filteredUsers.map(u => (
+                          <tr key={u.id} className="border-b hover:bg-muted/30 transition-colors">
+                            <td className="px-4 py-3 font-medium">{u.name}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{u.email}</td>
                             <td className="px-4 py-3">
                               <span className={cn(
                                 'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
-                                user.role === 'TenantAdmin' ? 'bg-purple-500/10 text-purple-500'
-                                : user.role === 'Manager' ? 'bg-orange-500/10 text-orange-500'
+                                u.role === 'TenantAdmin' ? 'bg-purple-500/10 text-purple-500'
+                                : u.role === 'Manager' ? 'bg-orange-500/10 text-orange-500'
                                 : 'bg-blue-500/10 text-blue-500'
                               )}>
-                                {user.role}
+                                {u.role}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={user.isActive ? 'text-green-500' : 'text-red-500'}>
-                                {user.isActive ? 'Active' : 'Inactive'}
+                              <span className={u.isActive ? 'text-green-500' : 'text-red-500'}>
+                                {u.isActive ? 'Active' : 'Inactive'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-right space-x-1">
-                              <UserActions userId={user.id} currentRole={user.role} currentStatus={user.isActive}
-                                onDelete={() => setDeletingUserId(user.id)}
-                                onResetPassword={() => setResetPasswordUserId(user.id)} />
-                            </td>
+                            {isAdmin && (
+                              <td className="px-4 py-3 text-right space-x-1">
+                                <UserActions userId={u.id} currentRole={u.role} currentStatus={u.isActive}
+                                  onDelete={() => setDeletingUserId(u.id)}
+                                  onResetPassword={() => setResetPasswordUserId(u.id)} />
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

@@ -82,7 +82,10 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
     },
   })
 
-  // Reset form whenever the selected ticket changes
+  const updateTicket = useUpdateTicket()
+  const { data: tenantUsers = [] } = useTenantUsers()
+
+  // Reset form whenever the selected ticket changes or users finish loading
   useEffect(() => {
     if (ticket) {
       reset({
@@ -93,14 +96,13 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
         severity:         ticket.severity,
         estimatedHours:   ticket.estimatedHours?.toString() ?? '',
         justification:    ticket.justification ?? '',
-        assignedToUserId: ticket.assignedToUserId ?? '',
+        assignedToUserId: ticket.assignedToUserId && ticket.assignedToUserId !== '00000000-0000-0000-0000-000000000000'
+          ? ticket.assignedToUserId
+          : '',
         createdAt:        ticket.createdAt ? ticket.createdAt.slice(0, 10) : '',
       })
     }
-  }, [ticket, reset])
-
-  const updateTicket = useUpdateTicket()
-  const { data: tenantUsers = [] } = useTenantUsers()
+  }, [ticket, reset, tenantUsers])
   const { t } = useTranslation()
   const status = watch('status')
   const descValue = watch('description')
@@ -154,7 +156,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
 
             {/* Title */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">{TYPE_LABEL[ticket.type as TicketType]}</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">Ticket / Título</label>
               <Input {...register('title', { required: true })} placeholder="Task title" />
             </div>
 

@@ -585,7 +585,7 @@ export function Tasks() {
                           className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
                         />
                       </th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Title</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Ticket / Título</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Priority</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>

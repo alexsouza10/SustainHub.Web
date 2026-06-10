@@ -21,10 +21,11 @@ export interface UserAdminDto {
   createdAt: string
 }
 
-export function useTenants() {
+export function useTenants(enabled = true) {
   return useQuery<TenantDto[]>({
     queryKey: ['admin-tenants'],
     queryFn: () => apiClient.get('/admin/tenants').then(r => r.data),
+    enabled,
   })
 }
 

@@ -14,6 +14,7 @@ import {
   SquareKanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { UserRole } from '@/types'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
@@ -23,13 +24,17 @@ export function Sidebar() {
   const { user, tenantName, logout } = useAuthStore()
   const { t } = useTranslation()
 
+  const canAccessAdmin = user?.role === UserRole.SuperAdmin
+    || user?.role === UserRole.TenantAdmin
+    || user?.role === UserRole.Manager
+
   const navItems = [
     { icon: LayoutDashboard, label: t('nav.dashboard'),     href: '/dashboard'      },
     { icon: ListTodo,        label: t('nav.tasks'),         href: '/tasks'          },
     { icon: SquareKanban,    label: 'Sprints',              href: '/sprints'        },
     { icon: Calendar,        label: t('nav.weeklyMeeting'), href: '/weekly-meeting' },
     { icon: Zap,             label: t('nav.aiInsights'),    href: '/ai-insights'    },
-    { icon: Settings,        label: t('nav.admin'),         href: '/admin'          },
+    ...(canAccessAdmin ? [{ icon: Settings, label: t('nav.admin'), href: '/admin' }] : []),
   ]
 
   const handleLogout = () => {

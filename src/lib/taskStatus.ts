@@ -1,26 +1,23 @@
 import { TicketStatus } from '@/types'
 
 // High-level status groups shown on the Tasks screen.
-// Maps the 8 backend statuses into the buckets the user asked for:
-// open (em aberto), in-progress (andamento), blocked (impedido),
-// done (concluído), cancelled (cancelado).
-export type StatusGroup = 'all' | 'open' | 'in-progress' | 'blocked' | 'done' | 'cancelled'
+export type StatusGroup = 'all' | 'open' | 'in-progress' | 'blocked' | 'done' | 'bug'
 
 export const STATUS_GROUP_MEMBERS: Record<Exclude<StatusGroup, 'all'>, TicketStatus[]> = {
-  'open':         [TicketStatus.Backlog, TicketStatus.Ready],
-  'in-progress':  [TicketStatus.InProgress, TicketStatus.InReview, TicketStatus.WaitingClient],
-  'blocked':      [TicketStatus.Blocked],
-  'done':         [TicketStatus.Done],
-  'cancelled':    [TicketStatus.Cancelled],
+  'open':         [TicketStatus.Backlog],
+  'in-progress':  [TicketStatus.OnGoing, TicketStatus.InReview],
+  'blocked':      [TicketStatus.Impedido],
+  'done':         [TicketStatus.Complete, TicketStatus.AceitoEmProducao],
+  'bug':          [TicketStatus.GerouBug],
 }
 
 export const STATUS_GROUP_LABEL: Record<StatusGroup, string> = {
   'all':         'All',
-  'open':        'Open',
+  'open':        'Backlog',
   'in-progress': 'In Progress',
-  'blocked':     'Blocked',
+  'blocked':     'Impedido',
   'done':        'Done',
-  'cancelled':   'Cancelled',
+  'bug':         'Gerou Bug',
 }
 
 // tailwind color tokens per group (text / accent ring / dot)
@@ -30,7 +27,7 @@ export const STATUS_GROUP_COLOR: Record<StatusGroup, { text: string; dot: string
   'in-progress': { text: 'text-cyan-400',     dot: 'bg-cyan-400',    ring: 'ring-cyan-400/40' },
   'blocked':     { text: 'text-red-400',      dot: 'bg-red-400',     ring: 'ring-red-400/40' },
   'done':        { text: 'text-green-400',    dot: 'bg-green-400',   ring: 'ring-green-400/40' },
-  'cancelled':   { text: 'text-gray-400',     dot: 'bg-gray-400',    ring: 'ring-gray-400/40' },
+  'bug':         { text: 'text-orange-400',   dot: 'bg-orange-400',  ring: 'ring-orange-400/40' },
 }
 
 export function inStatusGroup(status: TicketStatus, group: StatusGroup): boolean {

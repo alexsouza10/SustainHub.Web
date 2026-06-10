@@ -28,21 +28,20 @@ const SPRINT_STATUS_COLOR: Record<number, string> = {
 const SPRINT_TYPE_LABEL: Record<number, string> = { 1: 'Sprint', 2: 'Sustentation' }
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  [Priority.P1]: 'text-red-400 bg-red-500/10',
-  [Priority.P2]: 'text-orange-400 bg-orange-500/10',
-  [Priority.P3]: 'text-yellow-400 bg-yellow-500/10',
-  [Priority.P4]: 'text-green-400 bg-green-500/10',
+  [Priority.Critical]: 'text-red-400 bg-red-500/10',
+  [Priority.High]:     'text-orange-400 bg-orange-500/10',
+  [Priority.Medium]:   'text-yellow-400 bg-yellow-500/10',
+  [Priority.Low]:      'text-green-400 bg-green-500/10',
 }
 
 const STATUS_COLOR: Record<number, string> = {
-  [TicketStatus.Backlog]:       'text-slate-300 bg-slate-500/10',
-  [TicketStatus.Ready]:         'text-blue-300 bg-blue-500/10',
-  [TicketStatus.InProgress]:    'text-cyan-300 bg-cyan-500/10',
-  [TicketStatus.Blocked]:       'text-red-300 bg-red-500/10',
-  [TicketStatus.WaitingClient]: 'text-purple-300 bg-purple-500/10',
-  [TicketStatus.InReview]:      'text-orange-300 bg-orange-500/10',
-  [TicketStatus.Done]:          'text-green-300 bg-green-500/10',
-  [TicketStatus.Cancelled]:     'text-gray-300 bg-gray-500/10',
+  [TicketStatus.Backlog]:          'text-slate-300 bg-slate-500/10',
+  [TicketStatus.OnGoing]:          'text-cyan-300 bg-cyan-500/10',
+  [TicketStatus.Complete]:         'text-green-300 bg-green-500/10',
+  [TicketStatus.Impedido]:         'text-red-300 bg-red-500/10',
+  [TicketStatus.GerouBug]:         'text-orange-300 bg-orange-500/10',
+  [TicketStatus.InReview]:         'text-purple-300 bg-purple-500/10',
+  [TicketStatus.AceitoEmProducao]: 'text-emerald-300 bg-emerald-500/10',
 }
 
 const fmtDate = (s: string) =>
@@ -131,7 +130,7 @@ export function Sprints() {
         <div className="space-y-3">
           {paged.map(sprint => {
             const tickets   = allTickets.filter(t => t.sprintId === sprint.id)
-            const done      = tickets.filter(t => t.status === TicketStatus.Done).length
+            const done      = tickets.filter(t => t.status === TicketStatus.Complete || t.status === TicketStatus.AceitoEmProducao).length
             const progress  = sprint.ticketCount > 0 ? Math.round((sprint.doneCount / sprint.ticketCount) * 100) : 0
             const expanded  = expandedId === sprint.id
             const editing   = editingId === sprint.id

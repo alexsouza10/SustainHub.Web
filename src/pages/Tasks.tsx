@@ -22,8 +22,8 @@ import {
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Pagination } from '@/components/ui/Pagination'
 import {
-  TicketType, Priority, Severity, TicketStatus, TicketDto, SprintDto,
-  PRIORITY_LABEL, SEVERITY_LABEL, STATUS_LABEL, TYPE_LABEL,
+  TicketType, Priority, TicketStatus, TicketDto, SprintDto,
+  PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL,
 } from '@/types'
 import {
   StatusGroup, STATUS_GROUP_LABEL, STATUS_GROUP_COLOR, inStatusGroup,
@@ -36,21 +36,20 @@ type DateMode = 'created' | 'completed'
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  [Priority.P1]: 'text-red-400 bg-red-500/10',
-  [Priority.P2]: 'text-orange-400 bg-orange-500/10',
-  [Priority.P3]: 'text-yellow-400 bg-yellow-500/10',
-  [Priority.P4]: 'text-green-400 bg-green-500/10',
+  [Priority.Critical]: 'text-red-400 bg-red-500/10',
+  [Priority.High]:     'text-orange-400 bg-orange-500/10',
+  [Priority.Medium]:   'text-yellow-400 bg-yellow-500/10',
+  [Priority.Low]:      'text-green-400 bg-green-500/10',
 }
 
 const STATUS_COLOR: Record<TicketStatus, string> = {
-  [TicketStatus.Backlog]:       'text-slate-300 bg-slate-500/10',
-  [TicketStatus.Ready]:         'text-blue-300 bg-blue-500/10',
-  [TicketStatus.InProgress]:    'text-cyan-300 bg-cyan-500/10',
-  [TicketStatus.Blocked]:       'text-red-300 bg-red-500/10',
-  [TicketStatus.WaitingClient]: 'text-purple-300 bg-purple-500/10',
-  [TicketStatus.InReview]:      'text-orange-300 bg-orange-500/10',
-  [TicketStatus.Done]:          'text-green-300 bg-green-500/10',
-  [TicketStatus.Cancelled]:     'text-gray-300 bg-gray-500/10',
+  [TicketStatus.Backlog]:          'text-slate-300 bg-slate-500/10',
+  [TicketStatus.OnGoing]:          'text-cyan-300 bg-cyan-500/10',
+  [TicketStatus.Complete]:         'text-green-300 bg-green-500/10',
+  [TicketStatus.Impedido]:         'text-red-300 bg-red-500/10',
+  [TicketStatus.GerouBug]:         'text-orange-300 bg-orange-500/10',
+  [TicketStatus.InReview]:         'text-purple-300 bg-purple-500/10',
+  [TicketStatus.AceitoEmProducao]: 'text-emerald-300 bg-emerald-500/10',
 }
 
 const TYPE_CONFIG: Record<TicketType, { icon: React.ElementType; color: string }> = {
@@ -165,7 +164,7 @@ export function Tasks() {
     'in-progress': allTickets.filter(t => inStatusGroup(t.status, 'in-progress')).length,
     blocked:       allTickets.filter(t => inStatusGroup(t.status, 'blocked')).length,
     done:          allTickets.filter(t => inStatusGroup(t.status, 'done')).length,
-    cancelled:     allTickets.filter(t => inStatusGroup(t.status, 'cancelled')).length,
+    bug:           allTickets.filter(t => inStatusGroup(t.status, 'bug')).length,
   }), [allTickets])
 
   // date helper: respects created vs completed mode
@@ -386,7 +385,7 @@ export function Tasks() {
         <div className="space-y-4" ref={viewTopRef}>
           {/* Status summary cards (clickable filters) */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {(['all', 'open', 'in-progress', 'blocked', 'done', 'cancelled'] as StatusGroup[]).map(g => {
+            {(['all', 'open', 'in-progress', 'blocked', 'done', 'bug'] as StatusGroup[]).map(g => {
               const active = statusGroup === g
               const color = STATUS_GROUP_COLOR[g]
               return (
@@ -847,10 +846,9 @@ function TicketRow({ ticket, idx, sprints, checked, onToggle, onEdit, onDelete }
   }
 
   const nextStatus: Partial<Record<TicketStatus, TicketStatus>> = {
-    [TicketStatus.Backlog]:    TicketStatus.Ready,
-    [TicketStatus.Ready]:      TicketStatus.InProgress,
-    [TicketStatus.InProgress]: TicketStatus.InReview,
-    [TicketStatus.InReview]:   TicketStatus.Done,
+    [TicketStatus.Backlog]:  TicketStatus.OnGoing,
+    [TicketStatus.OnGoing]:  TicketStatus.InReview,
+    [TicketStatus.InReview]: TicketStatus.AceitoEmProducao,
   }
   const next = nextStatus[ticket.status as TicketStatus]
 
@@ -875,9 +873,9 @@ function TicketRow({ ticket, idx, sprints, checked, onToggle, onEdit, onDelete }
       <td className="px-4 py-3 max-w-[280px]">
         <span className="font-medium truncate block">{ticket.title}</span>
         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-          {ticket.justification && (
+          {ticket.impedimentoMotivo && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">
-              {ticket.status === TicketStatus.Blocked ? '🚫 blocked' : '❌ cancelled'}
+              🚫 impedido
             </span>
           )}
           {ticket.tags?.map((tag: string) => (
@@ -1236,8 +1234,8 @@ function SprintFilterControl({ sprints, currentSprintId, value, onChange, noSpri
 
 function ProductFeatureCard({ feature, tickets }: { feature: any; tickets: any[] }) {
   const linked = tickets.filter(t => t.featureId === feature.id)
-  const open   = linked.filter(t => t.status !== TicketStatus.Done && t.status !== TicketStatus.Cancelled).length
-  const closed = linked.filter(t => t.status === TicketStatus.Done || t.status === TicketStatus.Cancelled).length
+  const open   = linked.filter(t => t.status !== TicketStatus.Complete && t.status !== TicketStatus.AceitoEmProducao).length
+  const closed = linked.filter(t => t.status === TicketStatus.Complete || t.status === TicketStatus.AceitoEmProducao).length
   const total  = linked.length
 
   // Stability: higher open bugs = lower score
@@ -1309,14 +1307,13 @@ function Stat({ icon: Icon, label, value, color }: {
 // ── PlannerView (Kanban with drag-and-drop) ───────────────────────────────────
 
 const KANBAN_COLUMNS: { status: TicketStatus; label: string; color: string; dot: string }[] = [
-  { status: TicketStatus.Backlog,       label: 'Backlog',        color: 'text-slate-400',  dot: 'bg-slate-400'  },
-  { status: TicketStatus.Ready,         label: 'Ready',          color: 'text-blue-400',   dot: 'bg-blue-400'   },
-  { status: TicketStatus.InProgress,    label: 'In Progress',    color: 'text-cyan-400',   dot: 'bg-cyan-400'   },
-  { status: TicketStatus.Blocked,       label: 'Blocked',        color: 'text-red-400',    dot: 'bg-red-400'    },
-  { status: TicketStatus.WaitingClient, label: 'Waiting Client', color: 'text-purple-400', dot: 'bg-purple-400' },
-  { status: TicketStatus.InReview,      label: 'In Review',      color: 'text-orange-400', dot: 'bg-orange-400' },
-  { status: TicketStatus.Done,          label: 'Done',           color: 'text-green-400',  dot: 'bg-green-400'  },
-  { status: TicketStatus.Cancelled,     label: 'Cancelled',      color: 'text-gray-400',   dot: 'bg-gray-400'   },
+  { status: TicketStatus.Backlog,          label: 'Backlog',             color: 'text-slate-400',   dot: 'bg-slate-400'   },
+  { status: TicketStatus.OnGoing,          label: 'On-going',            color: 'text-cyan-400',    dot: 'bg-cyan-400'    },
+  { status: TicketStatus.Impedido,         label: 'Impedido',            color: 'text-red-400',     dot: 'bg-red-400'     },
+  { status: TicketStatus.GerouBug,         label: 'Gerou Bug',           color: 'text-orange-400',  dot: 'bg-orange-400'  },
+  { status: TicketStatus.InReview,         label: 'In Review',           color: 'text-purple-400',  dot: 'bg-purple-400'  },
+  { status: TicketStatus.Complete,         label: 'Complete',            color: 'text-green-400',   dot: 'bg-green-400'   },
+  { status: TicketStatus.AceitoEmProducao, label: 'Aceito em Produção',  color: 'text-emerald-400', dot: 'bg-emerald-400' },
 ]
 
 function PlannerView({
@@ -1372,11 +1369,9 @@ function PlannerView({
   }
 
   const NEXT: Partial<Record<TicketStatus, TicketStatus>> = {
-    [TicketStatus.Backlog]:       TicketStatus.Ready,
-    [TicketStatus.Ready]:         TicketStatus.InProgress,
-    [TicketStatus.InProgress]:    TicketStatus.InReview,
-    [TicketStatus.WaitingClient]: TicketStatus.InProgress,
-    [TicketStatus.InReview]:      TicketStatus.Done,
+    [TicketStatus.Backlog]:  TicketStatus.OnGoing,
+    [TicketStatus.OnGoing]:  TicketStatus.InReview,
+    [TicketStatus.InReview]: TicketStatus.AceitoEmProducao,
   }
 
   return (

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { TicketType, Priority, Severity } from '@/types'
+import { TicketType, Priority } from '@/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -8,7 +8,6 @@ export interface ParsedRow {
   description: string
   type: TicketType
   priority: Priority
-  severity: Severity
   tags: string[]
   _raw?: Record<string, string>
 }
@@ -42,28 +41,16 @@ const TYPE_MAP: Record<string, TicketType> = {
 }
 
 const PRIORITY_MAP: Record<string, Priority> = {
-  // English
-  p1: Priority.P1, critical: Priority.P1, urgent: Priority.P1,
-  blocker: Priority.P1, '1': Priority.P1,
-  p2: Priority.P2, high: Priority.P2, '2': Priority.P2,
-  p3: Priority.P3, medium: Priority.P3, normal: Priority.P3, '3': Priority.P3,
-  p4: Priority.P4, low: Priority.P4, minor: Priority.P4, '4': Priority.P4,
-  // Portuguese / "P0 – Crítico" style used in Queenston tracker
-  'p0': Priority.P1, 'p0 – crítico': Priority.P1, 'p0 - crítico': Priority.P1,
-  'p0 – critico': Priority.P1, 'crítico': Priority.P1, 'critico': Priority.P1,
-  'p1 – funcionalidade': Priority.P2, 'p1 - funcionalidade': Priority.P2,
-  'p1 – função': Priority.P2, 'funcionalidade': Priority.P2,
-  'p2 – usabilidade': Priority.P3, 'p2 - usabilidade': Priority.P3,
-  'usabilidade': Priority.P3,
-  'p3 – interface': Priority.P4, 'p3 - interface': Priority.P4,
-  'interface': Priority.P4, 'baixo': Priority.P4,
-}
-
-const SEVERITY_MAP: Record<string, Severity> = {
-  critical: Severity.Critical, 'crítico': Severity.Critical, '1': Severity.Critical,
-  high: Severity.High, alto: Severity.High, '2': Severity.High,
-  medium: Severity.Medium, médio: Severity.Medium, normal: Severity.Medium, '3': Severity.Medium,
-  low: Severity.Low, baixo: Severity.Low, minor: Severity.Low, '4': Severity.Low,
+  // English / new names
+  critical: Priority.Critical, urgent: Priority.Critical, blocker: Priority.Critical, '1': Priority.Critical,
+  high: Priority.High, '2': Priority.High,
+  medium: Priority.Medium, normal: Priority.Medium, '3': Priority.Medium,
+  low: Priority.Low, minor: Priority.Low, '4': Priority.Low,
+  // Legacy P1-P4 aliases
+  p1: Priority.Critical, p2: Priority.High, p3: Priority.Medium, p4: Priority.Low,
+  // Portuguese
+  'crítico': Priority.Critical, 'critico': Priority.Critical, 'alto': Priority.High,
+  'médio': Priority.Medium, 'medio': Priority.Medium, 'baixo': Priority.Low,
 }
 
 // Status from spreadsheet → TicketStatus number (for informational use only,
@@ -80,10 +67,7 @@ export function detectType(s: string): TicketType {
   return TYPE_MAP[s.trim().toLowerCase()] ?? TicketType.Bug
 }
 export function detectPriority(s: string): Priority {
-  return PRIORITY_MAP[s.trim().toLowerCase()] ?? Priority.P3
-}
-export function detectSeverity(s: string): Severity {
-  return SEVERITY_MAP[s.trim().toLowerCase()] ?? Severity.Medium
+  return PRIORITY_MAP[s.trim().toLowerCase()] ?? Priority.Medium
 }
 
 // Detect type from free text (title + body) — used for email parsing
@@ -98,10 +82,10 @@ export function detectTypeFromText(text: string): TicketType {
 
 export function detectPriorityFromText(text: string): Priority {
   const lc = text.toLowerCase()
-  if (/\b(critical|urgent|blocker|p0|p1|high.priority|crítico)\b/.test(lc)) return Priority.P1
-  if (/\b(high|important|p2|funcionalidade)\b/.test(lc)) return Priority.P2
-  if (/\b(low|minor|p4|trivial|nitpick|interface)\b/.test(lc)) return Priority.P4
-  return Priority.P3
+  if (/\b(critical|urgent|blocker|p0|p1|high.priority|crítico|critico)\b/.test(lc)) return Priority.Critical
+  if (/\b(high|important|p2|funcionalidade)\b/.test(lc)) return Priority.High
+  if (/\b(low|minor|p4|trivial|nitpick|interface|baixo)\b/.test(lc)) return Priority.Low
+  return Priority.Medium
 }
 
 // ── Column auto-mapper ────────────────────────────────────────────────────────
@@ -217,7 +201,6 @@ function parseSheet(raw: unknown[][], sheetLabel: string, rowOffset: number): Pa
   const descCol  = headerRow.find(h => colMap[h] === 'description')
   const prioCol  = headerRow.find(h => colMap[h] === 'priority')
   const typeCol  = headerRow.find(h => colMap[h] === 'type')
-  const sevCol   = headerRow.find(h => colMap[h] === 'severity')
   const tagsCol  = headerRow.find(h => colMap[h] === 'tags')
 
   const errors: ParseError[] = []
@@ -243,7 +226,6 @@ function parseSheet(raw: unknown[][], sheetLabel: string, rowOffset: number): Pa
 
     const prioRaw = getCol(prioCol)
     const typeRaw = getCol(typeCol)
-    const sevRaw  = getCol(sevCol)
     const tagsRaw = getCol(tagsCol)
 
     const _raw: Record<string, string> = {}
@@ -254,7 +236,6 @@ function parseSheet(raw: unknown[][], sheetLabel: string, rowOffset: number): Pa
       description: descRaw,
       type:        typeRaw ? detectType(typeRaw) : detectTypeFromText(titleRaw + ' ' + descRaw),
       priority:    prioRaw ? detectPriority(prioRaw) : detectPriorityFromText(titleRaw + ' ' + descRaw),
-      severity:    sevRaw  ? detectSeverity(sevRaw)  : Severity.Medium,
       tags:        tagsRaw ? tagsRaw.split(/[;,|]/).map(t => t.trim()).filter(Boolean) : [],
       _raw,
     })
@@ -294,7 +275,6 @@ export function parseEmailText(raw: string): ParsedRow | null {
     description: body,
     type:        detectTypeFromText(combined),
     priority:    detectPriorityFromText(combined),
-    severity:    Severity.Medium,
     tags:        [],
   }
 }

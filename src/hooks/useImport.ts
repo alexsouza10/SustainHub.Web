@@ -18,7 +18,6 @@ export function useImportTickets() {
           description: r.description,
           type:        r.type,
           priority:    r.priority,
-          severity:    r.severity,
           tags:        r.tags,
         })),
       }).then(r => r.data),

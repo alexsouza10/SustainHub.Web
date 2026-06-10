@@ -1,6 +1,6 @@
 import {
   TicketDto, TicketStatus,
-  PRIORITY_LABEL, SEVERITY_LABEL, STATUS_LABEL, TYPE_LABEL,
+  PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL,
 } from '@/types'
 import { statusGroupOf, STATUS_GROUP_LABEL } from '@/lib/taskStatus'
 
@@ -23,14 +23,12 @@ const COLUMNS: { header: string; value: (t: TicketDto) => string }[] = [
   { header: 'Title',         value: t => t.title },
   { header: 'Type',          value: t => TYPE_LABEL[t.type] ?? String(t.type) },
   { header: 'Priority',      value: t => PRIORITY_LABEL[t.priority] ?? String(t.priority) },
-  { header: 'Severity',      value: t => SEVERITY_LABEL[t.severity] ?? String(t.severity) },
   { header: 'Status',        value: t => STATUS_LABEL[t.status] ?? String(t.status) },
   { header: 'Group',         value: t => STATUS_GROUP_LABEL[statusGroupOf(t.status)] },
-  { header: 'Assignee',      value: t => t.assignedToUserName ?? '' },
+  { header: 'Assignee',      value: t => t.assignedToUserName ?? t.assignedToName ?? '' },
   { header: 'Created By',    value: t => t.createdByUserName ?? '' },
   { header: 'Project',       value: t => t.projectName ?? '' },
   { header: 'Tags',          value: t => (t.tags ?? []).join('; ') },
-  { header: 'Est. Hours',    value: t => t.estimatedHours?.toString() ?? '' },
   { header: 'Created At',    value: t => fmt(t.createdAt) },
   { header: 'Started At',    value: t => fmt(t.startedAt) },
   { header: 'Closed At',     value: t => fmt(t.closedAt) },
@@ -120,7 +118,7 @@ export interface ReportKpis {
   inProgress: number
   blocked: number
   done: number
-  cancelled: number
+  bug: number
   openBugs: number
   closedThisMonth: number
   avgResolutionDays: string
@@ -147,8 +145,8 @@ export function computeKpis(tasks: TicketDto[]): ReportKpis {
     inProgress: groupCount('in-progress'),
     blocked: groupCount('blocked'),
     done: groupCount('done'),
-    cancelled: groupCount('cancelled'),
-    openBugs: tasks.filter(t => t.type === 1 && t.status !== TicketStatus.Done && t.status !== TicketStatus.Cancelled).length,
+    bug: groupCount('bug'),
+    openBugs: tasks.filter(t => t.type === 1 && t.status !== TicketStatus.Complete && t.status !== TicketStatus.AceitoEmProducao).length,
     closedThisMonth: tasks.filter(t => t.closedAt && new Date(t.closedAt).getTime() >= monthStart).length,
     avgResolutionDays: avg,
   }
@@ -173,7 +171,7 @@ export function exportTasksPDF(tasks: TicketDto[], meta: ReportMeta) {
     { label: 'In Progress',     value: kpis.inProgress,       color: '#06b6d4' },
     { label: 'Blocked',         value: kpis.blocked,          color: '#ef4444' },
     { label: 'Done',            value: kpis.done,             color: '#22c55e' },
-    { label: 'Cancelled',       value: kpis.cancelled,        color: '#9ca3af' },
+    { label: 'Gerou Bug',       value: kpis.bug,              color: '#f97316' },
     { label: 'Open Bugs',       value: kpis.openBugs,         color: '#f97316' },
     { label: 'Avg Resolution',  value: `${kpis.avgResolutionDays}d`, color: '#8b5cf6' },
   ].map(c => `

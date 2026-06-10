@@ -1,10 +1,15 @@
 // Enums — valores numéricos espelham o backend (.NET)
 export enum TicketType { Bug = 1, Feature = 2, Improvement = 3, TechDebt = 4 }
-export enum Priority   { P1 = 1, P2 = 2, P3 = 3, P4 = 4 }
+export enum Priority   { Critical = 1, High = 2, Medium = 3, Low = 4 }
 export enum Severity   { Critical = 1, High = 2, Medium = 3, Low = 4 }
 export enum TicketStatus {
-  Backlog = 1, Ready = 2, InProgress = 3, Blocked = 4,
-  WaitingClient = 5, InReview = 6, Done = 7, Cancelled = 8
+  Backlog          = 1,
+  OnGoing          = 2,
+  Complete         = 3,
+  Impedido         = 4,
+  GerouBug         = 5,
+  InReview         = 6,
+  AceitoEmProducao = 7,
 }
 export enum TodoStatus { Backlog = 1, ThisWeek = 2, InProgress = 3, Waiting = 4, Done = 5 }
 export enum UserRole {
@@ -14,17 +19,23 @@ export enum Plan { Free = 1, Pro = 2, Enterprise = 3 }
 
 // Labels para exibição
 export const PRIORITY_LABEL: Record<Priority, string> = {
-  [Priority.P1]: 'P1', [Priority.P2]: 'P2', [Priority.P3]: 'P3', [Priority.P4]: 'P4',
+  [Priority.Critical]: 'Critical',
+  [Priority.High]:     'High',
+  [Priority.Medium]:   'Medium',
+  [Priority.Low]:      'Low',
 }
 export const SEVERITY_LABEL: Record<Severity, string> = {
   [Severity.Critical]: 'Critical', [Severity.High]: 'High',
-  [Severity.Medium]: 'Medium',     [Severity.Low]: 'Low',
+  [Severity.Medium]:   'Medium',   [Severity.Low]:  'Low',
 }
 export const STATUS_LABEL: Record<TicketStatus, string> = {
-  [TicketStatus.Backlog]: 'Backlog',   [TicketStatus.Ready]: 'Ready',
-  [TicketStatus.InProgress]: 'In Progress', [TicketStatus.Blocked]: 'Blocked',
-  [TicketStatus.WaitingClient]: 'Waiting Client', [TicketStatus.InReview]: 'In Review',
-  [TicketStatus.Done]: 'Done',         [TicketStatus.Cancelled]: 'Cancelled',
+  [TicketStatus.Backlog]:          'Backlog',
+  [TicketStatus.OnGoing]:          'On-going',
+  [TicketStatus.Complete]:         'Complete',
+  [TicketStatus.Impedido]:         'Impedido',
+  [TicketStatus.GerouBug]:         'Gerou Bug',
+  [TicketStatus.InReview]:         'In Review',
+  [TicketStatus.AceitoEmProducao]: 'Aceito em Produção',
 }
 export const TYPE_LABEL: Record<TicketType, string> = {
   [TicketType.Bug]: 'Bug', [TicketType.Feature]: 'Feature',
@@ -53,7 +64,6 @@ export interface TicketDto {
   description: string
   type: TicketType
   priority: Priority
-  severity: Severity
   status: TicketStatus
   projectId: string
   projectName: string
@@ -63,12 +73,13 @@ export interface TicketDto {
   createdByUserName: string
   assignedToUserId?: string
   assignedToUserName?: string
+  assignedToName?: string
   createdAt: string
   startedAt?: string
   closedAt?: string
-  estimatedHours?: number
-  actualHours?: number
   justification?: string
+  impedimentoMotivo?: string
+  bugTicketId?: string
   tags: string[]
   sprintId?: string
   sprintName?: string

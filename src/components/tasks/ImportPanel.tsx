@@ -8,9 +8,9 @@ import { useImportTickets } from '@/hooks/useImport'
 import {
   ParsedRow, ParseResult,
   parseFileContent, parseEmailText,
-  detectType, detectPriority, detectSeverity,
+  detectType, detectPriority,
 } from '@/lib/importParse'
-import { TicketType, Priority, Severity, TYPE_LABEL, PRIORITY_LABEL } from '@/types'
+import { TicketType, Priority, TYPE_LABEL, PRIORITY_LABEL } from '@/types'
 import { cn } from '@/lib/utils'
 
 type Tab    = 'file' | 'email'
@@ -28,10 +28,10 @@ const TYPE_COLOR: Record<number, string> = {
   [TicketType.TechDebt]:    'bg-purple-500/10 text-purple-400',
 }
 const PRIO_COLOR: Record<number, string> = {
-  [Priority.P1]: 'bg-red-500/10 text-red-400',
-  [Priority.P2]: 'bg-orange-500/10 text-orange-400',
-  [Priority.P3]: 'bg-yellow-500/10 text-yellow-400',
-  [Priority.P4]: 'bg-green-500/10 text-green-400',
+  [Priority.Critical]: 'bg-red-500/10 text-red-400',
+  [Priority.High]:     'bg-orange-500/10 text-orange-400',
+  [Priority.Medium]:   'bg-yellow-500/10 text-yellow-400',
+  [Priority.Low]:      'bg-green-500/10 text-green-400',
 }
 
 export function ImportPanel({ open, onClose }: ImportPanelProps) {
@@ -190,8 +190,7 @@ export function ImportPanel({ open, onClose }: ImportPanelProps) {
                   <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-muted-foreground">
                     <span><span className="font-medium text-foreground">Title</span> — task name (required)</span>
                     <span><span className="font-medium text-foreground">Type</span> — Bug, Feature, Improvement, Tech Debt</span>
-                    <span><span className="font-medium text-foreground">Priority</span> — P1/Critical, P2/High, P3/Medium, P4/Low</span>
-                    <span><span className="font-medium text-foreground">Severity</span> — Critical, High, Medium, Low</span>
+                    <span><span className="font-medium text-foreground">Priority</span> — Critical, High, Medium, Low</span>
                     <span><span className="font-medium text-foreground">Description</span> — optional text</span>
                     <span><span className="font-medium text-foreground">Tags</span> — comma or semicolon separated</span>
                   </div>
@@ -399,23 +398,10 @@ function PreviewRow({
                 onChange={e => onUpdate('priority', parseInt(e.target.value) as Priority)}
                 className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value={Priority.P1}>P1 Critical</option>
-                <option value={Priority.P2}>P2 High</option>
-                <option value={Priority.P3}>P3 Medium</option>
-                <option value={Priority.P4}>P4 Low</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase mb-1 block">Severity</label>
-              <select
-                value={row.severity}
-                onChange={e => onUpdate('severity', parseInt(e.target.value) as Severity)}
-                className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value={Severity.Critical}>Critical</option>
-                <option value={Severity.High}>High</option>
-                <option value={Severity.Medium}>Medium</option>
-                <option value={Severity.Low}>Low</option>
+                <option value={Priority.Critical}>Critical</option>
+                <option value={Priority.High}>High</option>
+                <option value={Priority.Medium}>Medium</option>
+                <option value={Priority.Low}>Low</option>
               </select>
             </div>
           </div>

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ticketService } from '@/services/api'
-import type { PagedResult, TicketDto } from '@/types'
+import apiClient from '@/services/api'
+// apiClient is the default export, ticketService is a named export — both from the same module
+import type { PagedResult, TicketDto, Priority } from '@/types'
 
 export function useTickets(params?: { status?: string; priority?: string }) {
   return useQuery<PagedResult<TicketDto>>({
@@ -52,6 +54,14 @@ export function useDeleteTickets() {
       qc.invalidateQueries({ queryKey: ['tickets'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
     },
+  })
+}
+
+export function useSuggestPriority() {
+  return useMutation({
+    mutationFn: ({ title, description }: { title: string; description: string }) =>
+      apiClient.post<{ priority: Priority; priorityName: string }>('/tickets/suggest-priority', { title, description })
+        .then(r => r.data),
   })
 }
 

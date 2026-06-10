@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
-import { X, Bug, Lightbulb, Wrench, Code2, Tag, Clock, ChevronDown, UserRound, SquareKanban } from 'lucide-react'
+import { X, Bug, Lightbulb, Wrench, Code2, Tag, ChevronDown, UserRound, SquareKanban, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useCreateTicket } from '@/hooks/useTickets'
+import { useCreateTicket, useSuggestPriority } from '@/hooks/useTickets'
 import { useProjects } from '@/hooks/useProjects'
 import { useTenantUsers } from '@/hooks/useUsers'
 import { useSprints } from '@/hooks/useSprints'
-import { TicketType, Priority, Severity } from '@/types'
+import { TicketType, Priority } from '@/types'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 
@@ -21,7 +21,6 @@ interface FormData {
   title: string
   description: string
   projectId: string
-  estimatedHours: string
   tagInput: string
 }
 
@@ -32,86 +31,105 @@ const TYPES = [
   { value: TicketType.TechDebt,    labelKey: 'ticketType.techDebt',    icon: Code2,     color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
 ]
 
+const PRIORITY_CONFIG = [
+  { value: Priority.Critical, label: 'Critical', color: 'text-red-400',    desc: 'Produção indisponível ou bloqueio grave' },
+  { value: Priority.High,     label: 'High',     color: 'text-orange-400', desc: 'Impacto em funcionalidade principal' },
+  { value: Priority.Medium,   label: 'Medium',   color: 'text-yellow-400', desc: 'Problema parcial com contorno disponível' },
+  { value: Priority.Low,      label: 'Low',      color: 'text-green-400',  desc: 'Ajuste visual, melhoria de baixa urgência' },
+]
+
 const fmtRange = (start: string, end: string) =>
   `${new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 
-function useAutoResize(value: string) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const resize = useCallback(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [])
-  useEffect(() => { resize() }, [value, resize])
-  return { ref, onInput: resize }
-}
-
 export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: CreateTaskCardProps) {
   const [type, setType]               = useState<TicketType>(defaultType)
-  const [priority, setPriority]       = useState<Priority>(Priority.P2)
-  const [severity, setSeverity]       = useState<Severity>(Severity.Medium)
+  const [priority, setPriority]       = useState<Priority>(Priority.Medium)
+  const [suggestedPriority, setSuggestedPriority] = useState<Priority | null>(null)
   const [tags, setTags]               = useState<string[]>([])
-  const [assignedToUserId, setAssignedToUserId] = useState<string>('')
+
+  // AssignedTo: pick from dropdown OR type freely
+  const [assigneeSearch, setAssigneeSearch]     = useState('')
+  const [assignedToUserId, setAssignedToUserId] = useState('')
+  const [showAssigneeList, setShowAssigneeList] = useState(false)
+
   const [sprintId, setSprintId]       = useState<string>('')
 
   const { data: projects = [] }    = useProjects()
   const { data: tenantUsers = [] } = useTenantUsers()
   const { data: sprints = [] }     = useSprints()
 
-  // Newest sprint = the one starting furthest out — new tasks default into it
-  // so they land in the upcoming iteration instead of the backlog.
   const newestSprint = [...sprints].sort((a, b) =>
     new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
   )[0]
-  const createTicket = useCreateTicket()
+
+  const createTicket   = useCreateTicket()
+  const suggestPriority = useSuggestPriority()
   const { t } = useTranslation()
   const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<FormData>({
-    defaultValues: { title: '', description: '', projectId: '', estimatedHours: '', tagInput: '' },
+    defaultValues: { title: '', description: '', projectId: '', tagInput: '' },
   })
-  const descValue = watch('description')
-  const descAutoResize = useAutoResize(descValue)
 
-  const PRIORITIES = [
-    { value: Priority.P1, label: t('priority.p1'), color: 'text-red-400' },
-    { value: Priority.P2, label: t('priority.p2'), color: 'text-orange-400' },
-    { value: Priority.P3, label: t('priority.p3'), color: 'text-yellow-400' },
-    { value: Priority.P4, label: t('priority.p4'), color: 'text-green-400' },
-  ]
+  const titleValue = watch('title')
+  const descValue  = watch('description')
 
-  const SEVERITIES = [
-    { value: Severity.Critical, label: t('severity.critical'), color: 'text-red-400' },
-    { value: Severity.High,     label: t('severity.high'),     color: 'text-orange-400' },
-    { value: Severity.Medium,   label: t('severity.medium'),   color: 'text-yellow-400' },
-    { value: Severity.Low,      label: t('severity.low'),      color: 'text-green-400' },
-  ]
+  // Auto-suggest priority when title+description are meaningful
+  const suggestRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (suggestRef.current) clearTimeout(suggestRef.current)
+    if (titleValue.length < 5) { setSuggestedPriority(null); return }
+    suggestRef.current = setTimeout(async () => {
+      try {
+        const result = await suggestPriority.mutateAsync({ title: titleValue, description: descValue })
+        setSuggestedPriority(result.priority)
+      } catch { /* silently ignore */ }
+    }, 1000)
+    return () => { if (suggestRef.current) clearTimeout(suggestRef.current) }
+  }, [titleValue, descValue]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-select first project of the tenant when projects load
+  const applySuggestion = () => {
+    if (suggestedPriority !== null) {
+      setPriority(suggestedPriority)
+      setSuggestedPriority(null)
+    }
+  }
+
+  // Pre-select first project
   useEffect(() => {
     if (projects.length > 0 && !getValues('projectId')) {
       setValue('projectId', projects[0].id)
     }
   }, [projects]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset and re-apply project default every time the panel opens
+  // Reset on open
   useEffect(() => {
     if (open) {
       setType(defaultType)
+      setAssigneeSearch('')
       setAssignedToUserId('')
       setSprintId(newestSprint?.id ?? '')
-      if (projects.length > 0) {
-        setValue('projectId', projects[0].id)
-      }
+      setSuggestedPriority(null)
+      if (projects.length > 0) setValue('projectId', projects[0].id)
     }
   }, [open, defaultType]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sprint list may still be loading when the panel opens — apply the
-  // "newest sprint" default as soon as it becomes available.
   useEffect(() => {
-    if (open && sprintId === '' && newestSprint) {
-      setSprintId(newestSprint.id)
-    }
+    if (open && sprintId === '' && newestSprint) setSprintId(newestSprint.id)
   }, [open, newestSprint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredUsers = tenantUsers.filter(u =>
+    assigneeSearch === '' || u.name.toLowerCase().includes(assigneeSearch.toLowerCase())
+  )
+
+  const selectUser = (userId: string, name: string) => {
+    setAssignedToUserId(userId)
+    setAssigneeSearch(name)
+    setShowAssigneeList(false)
+  }
+
+  const clearAssignee = () => {
+    setAssignedToUserId('')
+    setAssigneeSearch('')
+  }
 
   const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -130,17 +148,17 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
       description: data.description,
       type,
       priority,
-      severity,
       projectId: data.projectId,
       assignedToUserId: assignedToUserId || null,
-      estimatedHours: data.estimatedHours ? parseFloat(data.estimatedHours) : null,
+      assignedToName: !assignedToUserId && assigneeSearch ? assigneeSearch : null,
       tags,
       sprintId: sprintId || null,
     })
     reset()
     setTags([])
-    setPriority(Priority.P2)
-    setSeverity(Severity.Medium)
+    setPriority(Priority.Medium)
+    setSuggestedPriority(null)
+    setAssigneeSearch('')
     setAssignedToUserId('')
     setSprintId('')
     onClose()
@@ -149,6 +167,10 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
   if (!open) return null
 
   const selectedType = TYPES.find(tp => tp.value === type)!
+  const currentPrioConfig = PRIORITY_CONFIG.find(p => p.value === priority)!
+  const suggestedPrioConfig = suggestedPriority !== null
+    ? PRIORITY_CONFIG.find(p => p.value === suggestedPriority)
+    : null
 
   return (
     <>
@@ -206,87 +228,112 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
               {errors.title && <p className="text-xs text-red-400 mt-1">{errors.title.message}</p>}
             </div>
 
-            {/* Description */}
+            {/* Description — resize + scroll */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                 {t('createTask.description')}
               </label>
               <textarea
-                rows={4}
+                rows={5}
                 placeholder={t('createTask.descPlaceholder')}
                 {...register('description', { required: 'Description is required' })}
-                ref={el => {
-                  register('description').ref(el)
-                  ;(descAutoResize.ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = el
-                }}
-                onInput={descAutoResize.onInput}
                 className={cn(
                   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
                   'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2',
-                  'focus-visible:ring-ring focus-visible:ring-offset-2 resize-none overflow-hidden'
+                  'focus-visible:ring-ring focus-visible:ring-offset-2',
+                  'resize-y overflow-y-auto min-h-[100px] max-h-[300px]'
                 )}
               />
               {errors.description && <p className="text-xs text-red-400 mt-1">{errors.description.message}</p>}
             </div>
 
-            {/* Priority + Severity row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            {/* Priority */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {t('createTask.priority')}
                 </label>
-                <div className="relative">
-                  <select
-                    value={priority}
-                    onChange={e => setPriority(Number(e.target.value) as Priority)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                {suggestedPrioConfig && (
+                  <button
+                    type="button"
+                    onClick={applySuggestion}
+                    className={cn(
+                      'flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors',
+                      'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+                    )}
                   >
-                    {PRIORITIES.map(p => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                </div>
+                    <Sparkles className="h-3 w-3" />
+                    AI suggests: <span className={cn('font-semibold ml-0.5', suggestedPrioConfig.color)}>{suggestedPrioConfig.label}</span>
+                  </button>
+                )}
               </div>
-
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                  {t('createTask.severity')}
-                </label>
-                <div className="relative">
-                  <select
-                    value={severity}
-                    onChange={e => setSeverity(Number(e.target.value) as Severity)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <div className="grid grid-cols-2 gap-2">
+                {PRIORITY_CONFIG.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPriority(p.value)}
+                    className={cn(
+                      'flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-xs transition-all text-left',
+                      priority === p.value
+                        ? `border-current bg-muted/40 ${p.color}`
+                        : 'border-border text-muted-foreground hover:bg-muted/30'
+                    )}
                   >
-                    {SEVERITIES.map(s => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                </div>
+                    <span className={cn('font-semibold', priority === p.value ? p.color : '')}>{p.label}</span>
+                    <span className="text-[10px] leading-tight opacity-70">{p.desc}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Assigned To */}
+            {/* Assigned To — combobox with free text fallback */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                 Assigned To
               </label>
-              <div className="relative">
-                <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <select
-                  value={assignedToUserId}
-                  onChange={e => setAssignedToUserId(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background pl-8 pr-8 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">{t('createTask.unassigned')}</option>
-                  {tenantUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <div className="relative" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setShowAssigneeList(false) }}>
+                <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={assigneeSearch}
+                  onChange={e => {
+                    setAssigneeSearch(e.target.value)
+                    setAssignedToUserId('')
+                    setShowAssigneeList(true)
+                  }}
+                  onFocus={() => setShowAssigneeList(true)}
+                  placeholder="Name or @mention..."
+                  className="pl-8"
+                />
+                {assigneeSearch && (
+                  <button type="button" onClick={clearAssignee}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {showAssigneeList && filteredUsers.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {filteredUsers.map(u => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        tabIndex={0}
+                        onClick={() => selectUser(u.id, u.name)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
+                      >
+                        <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+              {assignedToUserId && (
+                <p className="text-xs text-muted-foreground mt-1">Registered user selected</p>
+              )}
+              {!assignedToUserId && assigneeSearch && (
+                <p className="text-xs text-muted-foreground mt-1">Will be saved as free-text name</p>
+              )}
             </div>
 
             {/* Sprint */}
@@ -310,47 +357,23 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
-              {newestSprint && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Defaults to the newest sprint — change it if this task belongs elsewhere.
-                </p>
-              )}
             </div>
 
-            {/* Project + Estimated Hours row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                  {t('createTask.project')}
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    {...register('projectId', { required: true })}
-                  >
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                  {t('createTask.estHours')}
-                </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    placeholder="0"
-                    className="pl-8"
-                    {...register('estimatedHours')}
-                  />
-                </div>
+            {/* Project */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                {t('createTask.project')}
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  {...register('projectId', { required: true })}
+                >
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
             </div>
 
@@ -384,9 +407,10 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
 
           {/* Footer */}
           <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3 bg-background">
-            <div className={cn('flex items-center gap-2 text-sm font-medium', selectedType.color)}>
+            <div className={cn('flex items-center gap-2 text-sm font-medium', currentPrioConfig.color)}>
               <selectedType.icon className="h-4 w-4" />
-              {t(selectedType.labelKey)}
+              <span>{t(selectedType.labelKey)}</span>
+              <span className="text-xs opacity-70">· {currentPrioConfig.label}</span>
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>

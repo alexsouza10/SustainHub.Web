@@ -1,32 +1,69 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { X, ChevronDown, Bug, Lightbulb, Wrench, Code2, UserRound, Link } from 'lucide-react'
+import { X, Bug, Lightbulb, Wrench, Code2, UserRound, Link, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useUpdateTicket, useTickets } from '@/hooks/useTickets'
 import { useTenantUsers } from '@/hooks/useUsers'
-import { TicketDto, TicketStatus, Priority, TicketType, TYPE_LABEL } from '@/types'
+import { useUIStore } from '@/stores/uiStore'
+import { TicketDto, TicketStatus, Priority, TicketType, TYPE_LABEL, STATUS_LABEL, PRIORITY_LABEL } from '@/types'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 
-// CSS colour per value — used on the <select> container + each <option>
-// so every option in the dropdown shows its own colour, not just the selected one.
-const PRIORITY_COLOR: Record<number, string> = {
-  [Priority.Critical]: '#f87171', // red-400
-  [Priority.High]:     '#fb923c', // orange-400
-  [Priority.Medium]:   '#facc15', // yellow-400
-  [Priority.Low]:      '#4ade80', // green-400
+// Hex por tema — inline style não suporta `dark:`, então escolhemos pelo tema atual.
+// light = tons -600/-700 (legíveis no branco) · dark = tons -400 (vibrantes no escuro)
+const STATUS_COLOR: Record<'light' | 'dark', Record<number, string>> = {
+  light: {
+    [TicketStatus.Backlog]:          '#475569', // slate-600
+    [TicketStatus.OnGoing]:          '#0e7490', // cyan-700
+    [TicketStatus.InReview]:         '#7e22ce', // purple-700
+    [TicketStatus.Complete]:         '#16a34a', // green-600
+    [TicketStatus.Impedido]:         '#dc2626', // red-600
+    [TicketStatus.GerouBug]:         '#ea580c', // orange-600
+    [TicketStatus.AceitoEmProducao]: '#059669', // emerald-600
+  },
+  dark: {
+    [TicketStatus.Backlog]:          '#94a3b8', // slate-400
+    [TicketStatus.OnGoing]:          '#22d3ee', // cyan-400
+    [TicketStatus.InReview]:         '#c084fc', // purple-400
+    [TicketStatus.Complete]:         '#4ade80', // green-400
+    [TicketStatus.Impedido]:         '#f87171', // red-400
+    [TicketStatus.GerouBug]:         '#fb923c', // orange-400
+    [TicketStatus.AceitoEmProducao]: '#34d399', // emerald-400
+  },
 }
 
-const STATUS_COLOR: Record<number, string> = {
-  [TicketStatus.Backlog]:          '#94a3b8', // slate-400
-  [TicketStatus.OnGoing]:          '#22d3ee', // cyan-400
-  [TicketStatus.Complete]:         '#4ade80', // green-400
-  [TicketStatus.Impedido]:         '#f87171', // red-400
-  [TicketStatus.GerouBug]:         '#fb923c', // orange-400
-  [TicketStatus.InReview]:         '#c084fc', // purple-400
-  [TicketStatus.AceitoEmProducao]: '#34d399', // emerald-400
+const PRIORITY_COLOR: Record<'light' | 'dark', Record<number, string>> = {
+  light: {
+    [Priority.Critical]: '#dc2626', // red-600
+    [Priority.High]:     '#ea580c', // orange-600
+    [Priority.Medium]:   '#d97706', // amber-600
+    [Priority.Low]:      '#16a34a', // green-600
+  },
+  dark: {
+    [Priority.Critical]: '#f87171', // red-400
+    [Priority.High]:     '#fb923c', // orange-400
+    [Priority.Medium]:   '#facc15', // yellow-400
+    [Priority.Low]:      '#4ade80', // green-400
+  },
 }
+
+const STATUS_OPTIONS = [
+  TicketStatus.Backlog,
+  TicketStatus.OnGoing,
+  TicketStatus.InReview,
+  TicketStatus.Complete,
+  TicketStatus.Impedido,
+  TicketStatus.GerouBug,
+  TicketStatus.AceitoEmProducao,
+]
+
+const PRIORITY_OPTIONS = [
+  Priority.Critical,
+  Priority.High,
+  Priority.Medium,
+  Priority.Low,
+]
 
 const TYPE_ICON: Record<number, React.ElementType> = {
   [TicketType.Bug]:         Bug,
@@ -35,10 +72,10 @@ const TYPE_ICON: Record<number, React.ElementType> = {
   [TicketType.TechDebt]:    Code2,
 }
 const TYPE_COLOR: Record<number, string> = {
-  [TicketType.Bug]:         'text-red-400',
-  [TicketType.Feature]:     'text-blue-400',
-  [TicketType.Improvement]: 'text-yellow-400',
-  [TicketType.TechDebt]:    'text-purple-400',
+  [TicketType.Bug]:         'text-red-500 dark:text-red-400',
+  [TicketType.Feature]:     'text-blue-600 dark:text-blue-400',
+  [TicketType.Improvement]: 'text-amber-600 dark:text-yellow-400',
+  [TicketType.TechDebt]:    'text-purple-600 dark:text-purple-400',
 }
 
 interface EditTaskPanelProps {
@@ -59,6 +96,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
     defaultValues: { title: '', description: '', impedimentoMotivo: '', createdAt: '' },
   })
   const { t } = useTranslation()
+  const theme                      = useUIStore(s => s.theme)
   const updateTicket               = useUpdateTicket()
   const { data: tenantUsers = [] } = useTenantUsers()
   const { data: allTicketsPage }   = useTickets()
@@ -67,12 +105,10 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
   const [status,   setStatus]   = useState<TicketStatus>(TicketStatus.Backlog)
   const [priority, setPriority] = useState<Priority>(Priority.Medium)
 
-  // AssignedTo combobox
   const [assigneeSearch,   setAssigneeSearch]   = useState('')
   const [assignedToUserId, setAssignedToUserId] = useState('')
   const [showAssigneeList, setShowAssigneeList] = useState(false)
 
-  // BugTicket search
   const [bugSearch,      setBugSearch]      = useState('')
   const [bugTicketId,    setBugTicketId]    = useState<string | null>(null)
   const [bugTicketTitle, setBugTicketTitle] = useState('')
@@ -153,7 +189,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 h-full w-full max-w-[460px] bg-background border-l border-border z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full max-w-[460px] bg-card border-l border-border z-50 flex flex-col shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -189,7 +225,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
                 {...register('description')}
                 placeholder="Detalhes, passos para reproduzir, comportamento esperado..."
                 className={cn(
-                  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
+                  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm',
                   'placeholder:text-muted-foreground focus-visible:outline-none',
                   'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   'resize-y overflow-y-auto min-h-[100px] max-h-[300px]'
@@ -203,33 +239,21 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
                 {t('editTask.statusLabel')}
               </label>
               <div className="relative">
+                <span
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full pointer-events-none"
+                  style={{ backgroundColor: STATUS_COLOR[theme][status] }}
+                />
                 <select
                   value={status}
                   onChange={e => setStatus(Number(e.target.value) as TicketStatus)}
-                  style={{ color: STATUS_COLOR[status] }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pr-8"
+                  style={{ color: STATUS_COLOR[theme][status] }}
+                  className="w-full rounded-lg border border-input bg-background pl-8 pr-8 py-2 text-sm font-semibold appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value={TicketStatus.Backlog}          style={{ color: STATUS_COLOR[TicketStatus.Backlog] }}>
-                    {t('status.backlog')}
-                  </option>
-                  <option value={TicketStatus.OnGoing}          style={{ color: STATUS_COLOR[TicketStatus.OnGoing] }}>
-                    {t('status.onGoing')}
-                  </option>
-                  <option value={TicketStatus.Complete}         style={{ color: STATUS_COLOR[TicketStatus.Complete] }}>
-                    {t('status.complete')}
-                  </option>
-                  <option value={TicketStatus.Impedido}         style={{ color: STATUS_COLOR[TicketStatus.Impedido] }}>
-                    {t('status.impedido')}
-                  </option>
-                  <option value={TicketStatus.GerouBug}         style={{ color: STATUS_COLOR[TicketStatus.GerouBug] }}>
-                    {t('status.gerouBug')}
-                  </option>
-                  <option value={TicketStatus.InReview}         style={{ color: STATUS_COLOR[TicketStatus.InReview] }}>
-                    {t('status.inReview')}
-                  </option>
-                  <option value={TicketStatus.AceitoEmProducao} style={{ color: STATUS_COLOR[TicketStatus.AceitoEmProducao] }}>
-                    {t('status.aceitoEmProducao')}
-                  </option>
+                  {STATUS_OPTIONS.map(s => (
+                    <option key={s} value={s} style={{ color: STATUS_COLOR[theme][s] }}>
+                      {STATUS_LABEL[s]}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
@@ -239,14 +263,14 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
             {isImpedido && (
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                  {t('editTask.impedimentoMotivo')} <span className="text-red-400">*</span>
+                  {t('editTask.impedimentoMotivo')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   {...register('impedimentoMotivo')}
                   placeholder={t('editTask.impedimentoPlaceholder')}
                   className={cn(
-                    'w-full rounded-md border border-red-500/40 bg-background px-3 py-2 text-sm',
+                    'w-full rounded-lg border border-red-500/40 bg-background px-3 py-2 text-sm',
                     'placeholder:text-muted-foreground focus-visible:outline-none',
                     'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     'resize-y overflow-y-auto min-h-[80px]'
@@ -274,7 +298,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
                     className="pl-8"
                   />
                   {showBugList && filteredBugTickets.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {filteredBugTickets.map(bt => (
                         <button
                           key={bt.id}
@@ -313,27 +337,20 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
                 <select
                   value={priority}
                   onChange={e => setPriority(Number(e.target.value) as Priority)}
-                  style={{ color: PRIORITY_COLOR[priority] }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pr-8"
+                  style={{ color: PRIORITY_COLOR[theme][priority] }}
+                  className="w-full rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-sm font-semibold appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value={Priority.Critical} style={{ color: PRIORITY_COLOR[Priority.Critical] }}>
-                    {t('priority.critical')}
-                  </option>
-                  <option value={Priority.High}     style={{ color: PRIORITY_COLOR[Priority.High] }}>
-                    {t('priority.high')}
-                  </option>
-                  <option value={Priority.Medium}   style={{ color: PRIORITY_COLOR[Priority.Medium] }}>
-                    {t('priority.medium')}
-                  </option>
-                  <option value={Priority.Low}      style={{ color: PRIORITY_COLOR[Priority.Low] }}>
-                    {t('priority.low')}
-                  </option>
+                  {PRIORITY_OPTIONS.map(p => (
+                    <option key={p} value={p} style={{ color: PRIORITY_COLOR[theme][p] }}>
+                      {PRIORITY_LABEL[p]}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
             </div>
 
-            {/* Assigned To — combobox with free-text */}
+            {/* Assigned To */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                 {t('editTask.assignedTo')}
@@ -360,7 +377,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
                   </button>
                 )}
                 {showAssigneeList && filteredUsers.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-background border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
                     {filteredUsers.map(u => (
                       <button
                         key={u.id}
@@ -400,7 +417,7 @@ export function EditTaskPanel({ open, onClose, ticket }: EditTaskPanelProps) {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-border flex gap-2 bg-background">
+          <div className="px-6 py-4 border-t border-border flex gap-2 bg-card">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               {t('editTask.cancel')}
             </Button>

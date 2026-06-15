@@ -25,17 +25,17 @@ interface FormData {
 }
 
 const TYPES = [
-  { value: TicketType.Bug,         labelKey: 'ticketType.bug',         icon: Bug,       color: 'text-red-400',    bg: 'bg-red-500/10    border-red-500/30'    },
-  { value: TicketType.Feature,     labelKey: 'ticketType.feature',     icon: Lightbulb, color: 'text-blue-400',   bg: 'bg-blue-500/10   border-blue-500/30'   },
-  { value: TicketType.Improvement, labelKey: 'ticketType.improvement', icon: Wrench,    color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' },
-  { value: TicketType.TechDebt,    labelKey: 'ticketType.techDebt',    icon: Code2,     color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
+  { value: TicketType.Bug,         labelKey: 'ticketType.bug',         icon: Bug,       color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-500/10    border-red-500/30'    },
+  { value: TicketType.Feature,     labelKey: 'ticketType.feature',     icon: Lightbulb, color: 'text-blue-600 dark:text-blue-400',  bg: 'bg-blue-500/10   border-blue-500/30'   },
+  { value: TicketType.Improvement, labelKey: 'ticketType.improvement', icon: Wrench,    color: 'text-amber-600 dark:text-yellow-400', bg: 'bg-amber-500/10 border-amber-500/30' },
+  { value: TicketType.TechDebt,    labelKey: 'ticketType.techDebt',    icon: Code2,     color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
 ]
 
 const PRIORITY_CONFIG = [
-  { value: Priority.Critical, label: 'Critical', color: 'text-red-400',    desc: 'Produção indisponível ou bloqueio grave' },
-  { value: Priority.High,     label: 'High',     color: 'text-orange-400', desc: 'Impacto em funcionalidade principal' },
-  { value: Priority.Medium,   label: 'Medium',   color: 'text-yellow-400', desc: 'Problema parcial com contorno disponível' },
-  { value: Priority.Low,      label: 'Low',      color: 'text-green-400',  desc: 'Ajuste visual, melhoria de baixa urgência' },
+  { value: Priority.Critical, label: 'Critical', color: 'text-red-600 dark:text-red-400',    desc: 'Produção indisponível ou bloqueio grave' },
+  { value: Priority.High,     label: 'High',     color: 'text-orange-600 dark:text-orange-400', desc: 'Impacto em funcionalidade principal' },
+  { value: Priority.Medium,   label: 'Medium',   color: 'text-amber-600 dark:text-yellow-400', desc: 'Problema parcial com contorno disponível' },
+  { value: Priority.Low,      label: 'Low',      color: 'text-green-600 dark:text-green-400',  desc: 'Ajuste visual, melhoria de baixa urgência' },
 ]
 
 const fmtRange = (start: string, end: string) =>
@@ -176,7 +176,7 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
     <>
       <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-background border-l border-border z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-card border-l border-border z-50 flex flex-col shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-semibold">{t('createTask.title')}</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -312,7 +312,7 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
                   </button>
                 )}
                 {showAssigneeList && filteredUsers.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {filteredUsers.map(u => (
                       <button
                         key={u.id}
@@ -406,7 +406,7 @@ export function CreateTaskCard({ open, onClose, defaultType = TicketType.Bug }: 
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3 bg-background">
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3 bg-card">
             <div className={cn('flex items-center gap-2 text-sm font-medium', currentPrioConfig.color)}>
               <selectedType.icon className="h-4 w-4" />
               <span>{t(selectedType.labelKey)}</span>

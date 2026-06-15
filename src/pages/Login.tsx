@@ -17,8 +17,8 @@ export function Login() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const { t } = useTranslation()
-  const [error, setError]         = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [isLoading, setIsLoading]       = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>()
@@ -40,72 +40,90 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold text-lg">
-            S
-          </div>
-          <div>
-            <div className="text-xl font-bold">SustainHub</div>
-            <div className="text-xs text-muted-foreground">Maintenance OS</div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-sm">
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
-          <h1 className="text-2xl font-bold mb-2">{t('login.title')}</h1>
-          <p className="text-muted-foreground text-sm mb-6">{t('login.subtitle')}</p>
+        {/* Card principal */}
+        <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
+
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-blue-700 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
+              S
+            </div>
+            <div>
+              <div className="text-base font-bold tracking-tight leading-tight">SustainHub</div>
+              <div className="text-[10px] text-muted-foreground font-semibold tracking-widest uppercase">Maintenance OS</div>
+            </div>
+          </div>
+
+          {/* Título */}
+          <div className="mb-7">
+            <h1 className="text-xl font-bold tracking-tight mb-1">{t('login.title')}</h1>
+            <p className="text-muted-foreground text-sm">{t('login.subtitle')}</p>
+          </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-5 px-4 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('login.email')}</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">{t('login.email')}</label>
               <Input
                 type="email"
-                placeholder="you@company.com"
+                placeholder="voce@empresa.com"
+                className="h-11"
                 {...register('email', { required: t('login.emailRequired') })}
               />
-              {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+              {errors.email && <p className="text-xs text-red-500 font-medium">{errors.email.message}</p>}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('login.password')}</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">{t('login.password')}</label>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className="pr-10"
+                  className="pr-10 h-11"
                   {...register('password', { required: t('login.passwordRequired') })}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(prev => !prev)}
+                  onClick={() => setShowPassword(p => !p)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+              {errors.password && <p className="text-xs text-red-500 font-medium">{errors.password.message}</p>}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? t('login.submitting') : t('login.submit')}
+            <Button
+              type="submit"
+              className="w-full h-11 text-sm font-semibold mt-1 shadow-sm"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  {t('login.submitting')}
+                </span>
+              ) : t('login.submit')}
             </Button>
           </form>
 
           <p className="text-sm text-center mt-6 text-muted-foreground">
             {t('login.noAccount')}{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
+            <Link to="/register" className="text-primary hover:underline font-semibold">
               {t('login.createAccount')}
             </Link>
           </p>
         </div>
+
       </div>
     </div>
   )

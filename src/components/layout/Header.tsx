@@ -21,7 +21,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
   const { t } = useTranslation()
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background">
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md shadow-sm">
       <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 gap-3">
 
         {/* Left: hamburger (mobile) + title */}
@@ -35,9 +35,9 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-lg md:text-2xl font-bold truncate">{title}</h1>
+            <h1 className="text-lg md:text-2xl font-bold truncate tracking-tight">{title}</h1>
             {subtitle && (
-              <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate hidden sm:block">
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate hidden sm:block leading-none">
                 {subtitle}
               </p>
             )}
@@ -48,20 +48,21 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Search — hidden on small mobile */}
           <div className="relative hidden lg:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder={t('header.searchPlaceholder')}
-              className="pl-10 bg-muted w-56"
+              className="pl-9 bg-muted/60 w-52 h-8 text-sm focus:bg-background transition-colors"
             />
           </div>
 
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          {/* Notification bell */}
+          <Button variant="ghost" size="icon" className="h-8 w-8 relative">
             <Bell className="h-4 w-4" />
           </Button>
 
           {/* Language selector */}
-          <div className="flex items-center gap-0.5 border border-border rounded-lg p-0.5">
-            <Languages className="h-3 w-3 text-muted-foreground ml-1 mr-0.5 hidden sm:block" />
+          <div className="flex items-center gap-0.5 border border-border rounded-lg p-0.5 bg-muted/30">
+            <Languages className="h-3 w-3 text-muted-foreground ml-1 mr-0.5 hidden sm:block flex-shrink-0" />
             {LANGS.map(l => (
               <button
                 key={l.code}
@@ -69,7 +70,7 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
                 className={cn(
                   'px-1.5 py-1 rounded text-[10px] font-semibold transition-colors',
                   lang === l.code
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -84,9 +85,10 @@ export const Header = ({ title, subtitle }: HeaderProps) => {
             size="icon"
             className="h-8 w-8"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? (
-              <Sun className="h-4 w-4" />
+              <Sun className="h-4 w-4 text-amber-400" />
             ) : (
               <Moon className="h-4 w-4" />
             )}

@@ -19,7 +19,7 @@ export function Register() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const { t } = useTranslation()
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError]         = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterFormData>()
@@ -47,98 +47,122 @@ export function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold text-lg">
-            S
-          </div>
-          <div>
-            <div className="text-xl font-bold">SustainHub</div>
-            <div className="text-xs text-muted-foreground">Maintenance OS</div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-sm">
 
-        <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
-          <h1 className="text-2xl font-bold mb-2">{t('register.title')}</h1>
-          <p className="text-muted-foreground text-sm mb-6">{t('register.subtitle')}</p>
+        {/* Card principal */}
+        <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
+
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-blue-700 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm flex-shrink-0">
+              S
+            </div>
+            <div>
+              <div className="text-base font-bold tracking-tight leading-tight">SustainHub</div>
+              <div className="text-[10px] text-muted-foreground font-semibold tracking-widest uppercase">Maintenance OS</div>
+            </div>
+          </div>
+
+          {/* Título */}
+          <div className="mb-7">
+            <h1 className="text-xl font-bold tracking-tight mb-1">{t('register.title')}</h1>
+            <p className="text-muted-foreground text-sm">{t('register.subtitle')}</p>
+          </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-5 px-4 py-3 rounded-xl bg-red-500/8 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('register.fullName')}</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">{t('register.fullName')}</label>
               <Input
                 placeholder={t('register.fullNamePlaceholder')}
+                className="h-11"
                 {...register('userName', { required: t('register.nameRequired') })}
               />
-              {errors.userName && <p className="text-xs text-red-400">{errors.userName.message}</p>}
+              {errors.userName && <p className="text-xs text-red-500 font-medium">{errors.userName.message}</p>}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('register.companyName')}</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">{t('register.companyName')}</label>
               <Input
                 placeholder={t('register.companyPlaceholder')}
+                className="h-11"
                 {...register('companyName', { required: t('register.companyRequired') })}
               />
-              {errors.companyName && <p className="text-xs text-red-400">{errors.companyName.message}</p>}
+              {errors.companyName && <p className="text-xs text-red-500 font-medium">{errors.companyName.message}</p>}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('register.email')}</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">{t('register.email')}</label>
               <Input
                 type="email"
-                placeholder="you@company.com"
+                placeholder="voce@empresa.com"
+                className="h-11"
                 {...register('email', {
                   required: t('register.emailRequired'),
                   pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: t('register.emailInvalid') },
                 })}
               />
-              {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+              {errors.email && <p className="text-xs text-red-500 font-medium">{errors.email.message}</p>}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('register.password')}</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                {...register('password', {
-                  required:  t('register.passwordRequired'),
-                  minLength: { value: 8, message: t('register.passwordMin') },
-                })}
-              />
-              {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">{t('register.password')}</label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  className="h-11"
+                  {...register('password', {
+                    required:  t('register.passwordRequired'),
+                    minLength: { value: 8, message: t('register.passwordMin') },
+                  })}
+                />
+                {errors.password && <p className="text-xs text-red-500 font-medium">{errors.password.message}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold">{t('register.confirmPassword')}</label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  className="h-11"
+                  {...register('confirmPassword', {
+                    required: t('register.confirmRequired'),
+                    validate: (v) => v === password || t('register.passwordMismatch'),
+                  })}
+                />
+                {errors.confirmPassword && <p className="text-xs text-red-500 font-medium">{errors.confirmPassword.message}</p>}
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">{t('register.confirmPassword')}</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                {...register('confirmPassword', {
-                  required: t('register.confirmRequired'),
-                  validate: (value) => value === password || t('register.passwordMismatch'),
-                })}
-              />
-              {errors.confirmPassword && <p className="text-xs text-red-400">{errors.confirmPassword.message}</p>}
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? t('register.submitting') : t('register.submit')}
+            <Button
+              type="submit"
+              className="w-full h-11 text-sm font-semibold mt-1 shadow-sm"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  {t('register.submitting')}
+                </span>
+              ) : t('register.submit')}
             </Button>
           </form>
 
           <p className="text-sm text-center mt-6 text-muted-foreground">
             {t('register.alreadyAccount')}{' '}
-            <Link to="/login" className="text-primary hover:underline font-medium">
+            <Link to="/login" className="text-primary hover:underline font-semibold">
               {t('register.signIn')}
             </Link>
           </p>
         </div>
+
       </div>
     </div>
   )

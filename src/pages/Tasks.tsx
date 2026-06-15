@@ -36,27 +36,27 @@ type DateMode = 'created' | 'completed'
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const PRIORITY_COLOR: Record<Priority, string> = {
-  [Priority.Critical]: 'text-red-400 bg-red-500/10',
-  [Priority.High]:     'text-orange-400 bg-orange-500/10',
-  [Priority.Medium]:   'text-yellow-400 bg-yellow-500/10',
-  [Priority.Low]:      'text-green-400 bg-green-500/10',
+  [Priority.Critical]: 'text-red-600 dark:text-red-400 bg-red-500/10',
+  [Priority.High]:     'text-orange-600 dark:text-orange-400 bg-orange-500/10',
+  [Priority.Medium]:   'text-amber-600 dark:text-yellow-400 bg-amber-500/10',
+  [Priority.Low]:      'text-green-600 dark:text-green-400 bg-green-500/10',
 }
 
 const STATUS_COLOR: Record<TicketStatus, string> = {
-  [TicketStatus.Backlog]:          'text-slate-300 bg-slate-500/10',
-  [TicketStatus.OnGoing]:          'text-cyan-300 bg-cyan-500/10',
-  [TicketStatus.Complete]:         'text-green-300 bg-green-500/10',
-  [TicketStatus.Impedido]:         'text-red-300 bg-red-500/10',
-  [TicketStatus.GerouBug]:         'text-orange-300 bg-orange-500/10',
-  [TicketStatus.InReview]:         'text-purple-300 bg-purple-500/10',
-  [TicketStatus.AceitoEmProducao]: 'text-emerald-300 bg-emerald-500/10',
+  [TicketStatus.Backlog]:          'text-slate-600 dark:text-slate-300 bg-slate-500/10',
+  [TicketStatus.OnGoing]:          'text-cyan-700 dark:text-cyan-300 bg-cyan-500/10',
+  [TicketStatus.Complete]:         'text-green-700 dark:text-green-300 bg-green-500/10',
+  [TicketStatus.Impedido]:         'text-red-600 dark:text-red-300 bg-red-500/10',
+  [TicketStatus.GerouBug]:         'text-orange-600 dark:text-orange-300 bg-orange-500/10',
+  [TicketStatus.InReview]:         'text-purple-700 dark:text-purple-300 bg-purple-500/10',
+  [TicketStatus.AceitoEmProducao]: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10',
 }
 
 const TYPE_CONFIG: Record<TicketType, { icon: React.ElementType; color: string }> = {
-  [TicketType.Bug]:         { icon: Bug,       color: 'text-red-400' },
-  [TicketType.Feature]:     { icon: Lightbulb, color: 'text-blue-400' },
-  [TicketType.Improvement]: { icon: Wrench,    color: 'text-yellow-400' },
-  [TicketType.TechDebt]:    { icon: Code2,     color: 'text-purple-400' },
+  [TicketType.Bug]:         { icon: Bug,       color: 'text-red-500 dark:text-red-400' },
+  [TicketType.Feature]:     { icon: Lightbulb, color: 'text-blue-600 dark:text-blue-400' },
+  [TicketType.Improvement]: { icon: Wrench,    color: 'text-amber-600 dark:text-yellow-400' },
+  [TicketType.TechDebt]:    { icon: Code2,     color: 'text-purple-600 dark:text-purple-400' },
 }
 
 const TYPE_TABS = [
@@ -120,7 +120,7 @@ function FeatureSkeletonCard() {
 export function Tasks() {
   const [activeType, setActiveType]     = useState<TicketType | null>(null)
   const [statusGroup, setStatusGroup]   = useState<StatusGroup>('all')
-  const [view, setView]                 = useState<'tickets' | 'product-features' | 'planner'>('tickets')
+  const [view, setView]                 = useState<'tickets' | 'planner'>('tickets')
   const [search, setSearch]             = useState('')
   const [createOpen, setCreateOpen]     = useState(false)
   const [createDefault, setCreateDefault] = useState<TicketType>(TicketType.Bug)
@@ -321,9 +321,8 @@ export function Tasks() {
         <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 overflow-x-auto">
           {(
             [
-              { id: 'tickets',          label: 'Tickets',  labelShort: 'Tickets' },
-              { id: 'planner',          label: 'Planner',  labelShort: 'Planner' },
-              { id: 'product-features', label: 'Features', labelShort: 'Features' },
+              { id: 'tickets', label: 'Tickets' },
+              { id: 'planner', label: 'Planner' },
             ] as const
           ).map(v => (
             <button
@@ -647,43 +646,6 @@ export function Tasks() {
               itemLabel="tasks"
             />
           )}
-        </div>
-      )}
-
-      {/* ── PRODUCT FEATURES VIEW ── */}
-      {view === 'product-features' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Product surfaces and their stability score
-            </p>
-            <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              New Feature Request
-            </Button>
-          </div>
-
-          {featuresError && (
-            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              Failed to load features.
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {featuresLoading ? (
-              [...Array(6)].map((_, i) => <FeatureSkeletonCard key={i} />)
-            ) : (features ?? []).length === 0 ? (
-              <div className="col-span-3 py-16 text-center text-muted-foreground">
-                <Lightbulb className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p>No product features yet.</p>
-                <p className="text-xs mt-1">Features appear here when linked to tickets.</p>
-              </div>
-            ) : (
-              (features ?? []).map((feature: any) => (
-                <ProductFeatureCard key={feature.id} feature={feature} tickets={allTickets} />
-              ))
-            )}
-          </div>
         </div>
       )}
 
@@ -1307,13 +1269,13 @@ function Stat({ icon: Icon, label, value, color }: {
 // ── PlannerView (Kanban with drag-and-drop) ───────────────────────────────────
 
 const KANBAN_COLUMNS: { status: TicketStatus; label: string; color: string; dot: string }[] = [
-  { status: TicketStatus.Backlog,          label: 'Backlog',             color: 'text-slate-400',   dot: 'bg-slate-400'   },
-  { status: TicketStatus.OnGoing,          label: 'On-going',            color: 'text-cyan-400',    dot: 'bg-cyan-400'    },
-  { status: TicketStatus.Impedido,         label: 'Impedido',            color: 'text-red-400',     dot: 'bg-red-400'     },
-  { status: TicketStatus.GerouBug,         label: 'Gerou Bug',           color: 'text-orange-400',  dot: 'bg-orange-400'  },
-  { status: TicketStatus.InReview,         label: 'In Review',           color: 'text-purple-400',  dot: 'bg-purple-400'  },
-  { status: TicketStatus.Complete,         label: 'Complete',            color: 'text-green-400',   dot: 'bg-green-400'   },
-  { status: TicketStatus.AceitoEmProducao, label: 'Aceito em Produção',  color: 'text-emerald-400', dot: 'bg-emerald-400' },
+  { status: TicketStatus.Backlog,          label: 'Backlog',            color: 'text-slate-500 dark:text-slate-400',    dot: 'bg-slate-500 dark:bg-slate-400'    },
+  { status: TicketStatus.OnGoing,          label: 'On-going',           color: 'text-cyan-700 dark:text-cyan-400',      dot: 'bg-cyan-600 dark:bg-cyan-400'      },
+  { status: TicketStatus.Impedido,         label: 'Impedido',           color: 'text-red-600 dark:text-red-400',        dot: 'bg-red-500 dark:bg-red-400'        },
+  { status: TicketStatus.GerouBug,         label: 'Gerou Bug',          color: 'text-orange-600 dark:text-orange-400',  dot: 'bg-orange-500 dark:bg-orange-400'  },
+  { status: TicketStatus.InReview,         label: 'In Review',          color: 'text-purple-700 dark:text-purple-400',  dot: 'bg-purple-600 dark:bg-purple-400'  },
+  { status: TicketStatus.Complete,         label: 'Complete',           color: 'text-green-600 dark:text-green-400',    dot: 'bg-green-500 dark:bg-green-400'    },
+  { status: TicketStatus.AceitoEmProducao, label: 'Aceito em Produção', color: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-600 dark:bg-emerald-400' },
 ]
 
 function PlannerView({

@@ -20,14 +20,14 @@ export const STATUS_GROUP_LABEL: Record<StatusGroup, string> = {
   'bug':         'Gerou Bug',
 }
 
-// tailwind color tokens per group (text / accent ring / dot)
+// tailwind color tokens per group — dark: variants garantem contraste em ambos os temas
 export const STATUS_GROUP_COLOR: Record<StatusGroup, { text: string; dot: string; ring: string }> = {
-  'all':         { text: 'text-foreground',   dot: 'bg-slate-400',   ring: 'ring-slate-400/40' },
-  'open':        { text: 'text-blue-400',     dot: 'bg-blue-400',    ring: 'ring-blue-400/40' },
-  'in-progress': { text: 'text-cyan-400',     dot: 'bg-cyan-400',    ring: 'ring-cyan-400/40' },
-  'blocked':     { text: 'text-red-400',      dot: 'bg-red-400',     ring: 'ring-red-400/40' },
-  'done':        { text: 'text-green-400',    dot: 'bg-green-400',   ring: 'ring-green-400/40' },
-  'bug':         { text: 'text-orange-400',   dot: 'bg-orange-400',  ring: 'ring-orange-400/40' },
+  'all':         { text: 'text-foreground',                              dot: 'bg-slate-400',                          ring: 'ring-slate-400/40'  },
+  'open':        { text: 'text-blue-600 dark:text-blue-400',            dot: 'bg-blue-500 dark:bg-blue-400',          ring: 'ring-blue-500/40'   },
+  'in-progress': { text: 'text-cyan-700 dark:text-cyan-400',            dot: 'bg-cyan-600 dark:bg-cyan-400',          ring: 'ring-cyan-500/40'   },
+  'blocked':     { text: 'text-red-600 dark:text-red-400',              dot: 'bg-red-500 dark:bg-red-400',            ring: 'ring-red-500/40'    },
+  'done':        { text: 'text-green-600 dark:text-green-400',          dot: 'bg-green-500 dark:bg-green-400',        ring: 'ring-green-500/40'  },
+  'bug':         { text: 'text-orange-600 dark:text-orange-400',        dot: 'bg-orange-500 dark:bg-orange-400',      ring: 'ring-orange-500/40' },
 }
 
 export function inStatusGroup(status: TicketStatus, group: StatusGroup): boolean {
